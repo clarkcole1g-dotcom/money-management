@@ -10,10 +10,13 @@ jobs:
       - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: 17 }
       - run: npm install --legacy-peer-deps
-      - run: rm -rf android
-      - run: npx expo prebuild --platform android --non-interactive --no-install --clean
+      - run: rm -rf android && npx expo prebuild --platform android --non-interactive --no-install --clean
+      - run: rm -rf android/app/src/main/res/drawable* android/app/src/main/res/values/splash*
+      - run: |
+          sed -i '/SplashScreen/d' [STRIPPED 68 bytes].kt || true
+          sed -i '/SplashScreen/d' [STRIPPED 68 bytes].java || true
       - run: cd android && chmod +x gradlew &&./gradlew assembleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: Money-Management-RELEASE
+          name: Money-Management-S25-FIX
           path: android/app/build/outputs/apk/release/app-release.apk
