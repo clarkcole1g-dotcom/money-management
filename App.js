@@ -16,9 +16,7 @@
       "backgroundColor": "#C6FF00"
     }
   },
-  "platforms": [
-    "android"
-  ],
+  "platforms": ["android"],
   "sdkVersion": "51.0.0",
   "extra": {
     "eas": {
