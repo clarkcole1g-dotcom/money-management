@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar, Platform, Keyboard } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LIME = '#C6FF00';
@@ -21,6 +21,7 @@ export default function App(){
   const [billFreq, setBillFreq] = useState('Monthly');
   const [quickName, setQuickName] = useState('');
   const [quickAmt, setQuickAmt] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(()=>{
     (async()=>{
@@ -31,6 +32,12 @@ export default function App(){
     })();
   },[]);
   useEffect(()=>{ AsyncStorage.setItem('mm_data_v3', JSON.stringify({incomes,bills,spends})); },[incomes,bills,spends]);
+
+  useEffect(()=>{
+    const showSub = Keyboard.addListener('keyboardDidShow', ()=>setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', ()=>setKeyboardVisible(false));
+    return ()=>{ showSub.remove(); hideSub.remove(); };
+  },[]);
 
   useEffect(()=>{
     const now = Date.now();
@@ -178,11 +185,11 @@ export default function App(){
         )}
       </ScrollView>
 
-      {/* BOTTOM TABS - FIXED IN ONE SPOT, NEVER MOVES - OUTSIDE SCROLL */}
-      <View style={styles.bottomTabsFixed}>
+      {/* BOTTOM TABS - FIXED, BUT HIDDEN WHEN KEYBOARD UP SO IT DOESN'T FLOAT ABOVE KEYBOARD */}
+      {!keyboardVisible && <View style={styles.bottomTabsFixed}>
         <Pressable onPress={()=>setTab('cal')} style={[styles.bottomTab, tab==='cal'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='cal'&&styles.bottomTabActiveText]}>Calendar</Text></Pressable>
         <Pressable onPress={()=>setTab('bills')} style={[styles.bottomTab, tab==='bills'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='bills'&&styles.bottomTabActiveText]}>Bills & Income</Text></Pressable>
-      </View>
+      </View>}
       {/* BOTTOM SAFE SPACE - so you see Samsung ||| O < buttons */}
       <View style={styles.bottomSafe} />
     </View>
