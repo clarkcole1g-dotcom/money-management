@@ -88,7 +88,7 @@ export default function App(){
         {/* BLACK BOX - SCROLLS AWAY WHEN YOU SCROLL DOWN - NOT STUCK */}
         {tab==='cal' && (
           <View style={styles.blackCard}>
-            <View style={styles.blackTopRow}><Text style={styles.blackTopLabel}>ADD INCOME TO START</Text><View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyLeft>0?weeklyLeft.toFixed(0):'0'} / WEEK</Text></View></View>
+            <View style={styles.blackTopRow}><Text style={styles.blackTopLabel}>V10 - EDITABLE + SMALL - {incomes.length===0?'ADD INCOME':''}</Text><View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyLeft>0?weeklyLeft.toFixed(0):'0'} / WEEK</Text></View></View>
             <Text style={styles.bigMoney}>£{weekly>0?weeklyLeft.toFixed(2):'0.00'}</Text>
             <Text style={styles.noData}>{incomes.length===0?'NO DATA - ADD INCOME & BILLS':'£'+totalIncome.toFixed(0)+' IN - £'+totalBills.toFixed(0)+' BILLS'}</Text>
             <View style={styles.divider}/>
