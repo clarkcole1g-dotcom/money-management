@@ -4,229 +4,276 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LIME = '#C6FF00';
 const BLACK = '#0a0a0a';
-const GREY = '#f5f5f0';
 
-export default function App() {
-  const [tab, setTab] = useState('calendar'); // calendar | manage
-  const [incomes, setIncomes] = useState([]); // {id,name,amount,date,recurring}
-  const [bills, setBills] = useState([]); // {id,name,amount,freq: 'weekly'|'monthly', day, keep}
-  const [spends, setSpends] = useState([]); // {id,name,amount,date}
+export default function App(){
+  const [tab, setTab] = useState('cal'); // cal | bills
+  const [incomes, setIncomes] = useState([]);
+  const [bills, setBills] = useState([]);
+  const [spends, setSpends] = useState([]);
+  const [month, setMonth] = useState(new Date());
+
+  // inputs
   const [incName, setIncName] = useState('');
   const [incAmt, setIncAmt] = useState('');
-  const [incDate, setIncDate] = useState(new Date().getDate().toString());
+  const [incDay, setIncDay] = useState('');
+  const [incFreq, setIncFreq] = useState('Monthly');
   const [billName, setBillName] = useState('');
   const [billAmt, setBillAmt] = useState('');
-  const [billFreq, setBillFreq] = useState('monthly');
-  const [billDay, setBillDay] = useState('1');
-  const [billKeep, setBillKeep] = useState(true);
+  const [billDay, setBillDay] = useState('');
+  const [billFreq, setBillFreq] = useState('Monthly');
   const [quickName, setQuickName] = useState('');
   const [quickAmt, setQuickAmt] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const today = new Date();
-  const month = selectedDate.getMonth();
-  const year = selectedDate.getFullYear();
-  const daysInMonth = new Date(year, month+1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const s = await AsyncStorage.getItem('mm_full');
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const s = await AsyncStorage.getItem('mm_data_v3');
         if(s){ const d=JSON.parse(s); setIncomes(d.incomes||[]); setBills(d.bills||[]); setSpends(d.spends||[]); }
-      } catch{}
+      }catch{}
     })();
-  }, []);
-  useEffect(() => { AsyncStorage.setItem('mm_full', JSON.stringify({incomes,bills,spends})); }, [incomes,bills,spends]);
+  },[]);
+  useEffect(()=>{ AsyncStorage.setItem('mm_data_v3', JSON.stringify({incomes,bills,spends})); },[incomes,bills,spends]);
+
+  // cleanup quick adds after 7 days
+  useEffect(()=>{
+    const now = Date.now();
+    const filtered = spends.filter(s=> now - new Date(s.date).getTime() < 7*24*60*60*1000 );
+    if(filtered.length!==spends.length) setSpends(filtered);
+  },[spends.length]);
 
   const totalIncome = incomes.reduce((a,b)=>a+b.amount,0);
-  const totalBillsMonthly = bills.reduce((a,b)=>a + (b.freq==='monthly'? b.amount : b.amount*4.33), 0);
-  const totalBillsWeekly = bills.reduce((a,b)=>a + (b.freq==='weekly'? b.amount : b.amount/4.33), 0);
-  const weeklyPot = totalIncome ? (totalIncome - totalBillsMonthly)/4.33 : 0;
-  const totalSpendsWeek = spends.filter(s=>{ const d=new Date(s.date); return d.getMonth()===month && Math.ceil(d.getDate()/7)===Math.ceil(today.getDate()/7); }).reduce((a,b)=>a+b.amount,0);
-  const canSpend = weeklyPot - totalSpendsWeek;
+  const totalBills = bills.reduce((a,b)=>a+b.amount,0);
+  const totalSpent = spends.reduce((a,b)=>a+b.amount,0);
+  const weekly = totalIncome>0 ? (totalIncome - totalBills)/4.333 : 0;
+  const weeklyLeft = weekly - totalSpent;
 
-  const addIncome = () => {
+  const addIncome = ()=>{
     const amt=parseFloat(incAmt); if(!incName||!amt) return;
-    setIncomes([...incomes, {id:Date.now().toString(), name:incName, amount:amt, day:parseInt(incDate)||today.getDate(), recurring:true}]);
-    setIncName(''); setIncAmt('');
+    const day=parseInt(incDay)||1;
+    setIncomes([...incomes,{id:Date.now().toString(), name:incName, amount:amt, day, freq:incFreq}]);
+    setIncName(''); setIncAmt(''); setIncDay('');
   };
-  const addBill = () => {
+  const addBill = ()=>{
     const amt=parseFloat(billAmt); if(!billName||!amt) return;
-    setBills([...bills, {id:Date.now().toString(), name:billName, amount:amt, freq:billFreq, day:parseInt(billDay)||1, keep:billKeep}]);
-    setBillName(''); setBillAmt('');
+    const day=parseInt(billDay)||1;
+    setBills([...bills,{id:Date.now().toString(), name:billName, amount:amt, day, freq:billFreq}]);
+    setBillName(''); setBillAmt(''); setBillDay('');
   };
-  const addQuick = () => {
+  const addQuick = ()=>{
     const amt=parseFloat(quickAmt); if(!quickName||!amt) return;
-    setSpends([...spends, {id:Date.now().toString(), name:quickName, amount:amt, date:new Date().toISOString()}]);
+    setSpends([...spends,{id:Date.now().toString(), name:quickName, amount:amt, date:new Date().toISOString()}]);
     setQuickName(''); setQuickAmt('');
   };
 
-  const renderCalendar = () => {
-    const days=[];
-    for(let i=0;i<firstDay;i++) days.push(<View key={'e'+i} style={styles.calEmpty} />);
-    for(let d=1;d<=daysInMonth;d++){
-      const hasIncome = incomes.some(i=>i.day===d);
-      const hasBill = bills.some(b=>b.day===d);
-      const isToday = d===today.getDate() && month===today.getMonth();
-      days.push(
-        <Pressable key={d} style={[styles.calDay, isToday&&styles.calToday, (hasIncome||hasBill)&&styles.calHas]}>
-          <Text style={[styles.calDayText, isToday&&styles.calTodayText]}>{d}</Text>
-          <View style={styles.calDots}>
-            {hasIncome && <View style={styles.dotIncome} />}
-            {hasBill && <View style={styles.dotBill} />}
-          </View>
-        </Pressable>
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+  const today = new Date();
+
+  const renderCal = ()=>{
+    const cells=[];
+    for(let i=0;i<firstDay;i++) cells.push(<View key={'e'+i} style={styles.calCellEmpty}/>);
+    for(let d=1; d<=daysInMonth; d++){
+      const isToday = d===today.getDate() && month.getMonth()===today.getMonth() && month.getFullYear()===today.getFullYear();
+      const hasInc = incomes.some(x=>x.day===d);
+      const hasBill = bills.some(x=>x.day===d);
+      cells.push(
+        <View key={d} style={[styles.calCell, isToday&&styles.calToday]}>
+          <Text style={[styles.calText, isToday&&styles.calTodayText]}>{d}</Text>
+          {(hasInc||hasBill)&&<View style={styles.calDots}>
+            {hasInc&&<View style={[styles.dot,{backgroundColor:LIME}]}/>}
+            {hasBill&&<View style={[styles.dot,{backgroundColor:'#fff', opacity:0.8}]}/>}
+          </View>}
+        </View>
       );
     }
-    return days;
+    return cells;
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Money Management</Text>
-        <Text style={styles.headerAmt}>£{totalIncome>0?canSpend.toFixed(2):'0.00'} / week</Text>
-        <Text style={styles.headerSub}>{incomes.length>0?`£${totalIncome.toFixed(0)} income • £${totalBillsMonthly.toFixed(0)} bills/mo`: 'ADD INCOME TO START'}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}} contentContainerStyle={{paddingBottom:140}}>
+        {tab==='cal' ? (
+          <>
+            <View style={styles.blackCard}>
+              <View style={styles.blackTopRow}>
+                <Text style={styles.blackTopLabel}>ADD INCOME TO START</Text>
+                <View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyLeft>0?weeklyLeft.toFixed(0):'0'} / WEEK</Text></View>
+              </View>
+              <Text style={styles.bigMoney}>£{weekly>0?weeklyLeft.toFixed(2):'0.00'}</Text>
+              <Text style={styles.noData}>{incomes.length===0?'NO DATA - ADD INCOME & BILLS':'£'+totalIncome.toFixed(0)+' IN - £'+totalBills.toFixed(0)+' BILLS'}</Text>
+              <View style={styles.divider}/>
+              <View style={styles.threeCol}>
+                <View style={styles.col}><Text style={styles.colLabel}>SPENT</Text><Text style={styles.colVal}>£{totalSpent.toFixed(0)}</Text></View>
+                <View style={styles.colMid}><Text style={styles.colLabel}>INCOME</Text><Text style={styles.colVal}>£{totalIncome.toFixed(0)}</Text></View>
+                <View style={styles.col}><Text style={styles.colLabel}>BILLS</Text><Text style={[styles.colVal,{color:'#ff8a8a'}]}>-£{totalBills.toFixed(0)}</Text></View>
+              </View>
+            </View>
+
+            {incomes.length===0 && (
+              <View style={styles.limeWelcome}>
+                <Text style={styles.welcomeTitle}>👋 Welcome! No data yet.</Text>
+                <Text style={styles.welcomeSub}>Go to £ Bills & Income tab and add your payday. It saves to your phone memory.</Text>
+              </View>
+            )}
+
+            <View style={styles.calCard}>
+              <View style={styles.calHeader}>
+                <Pressable onPress={()=>setMonth(new Date(month.getFullYear(), month.getMonth()-1,1))} style={styles.calNav}><Text style={styles.calNavText}>‹</Text></Pressable>
+                <View style={{alignItems:'center'}}>
+                  <Text style={styles.calMonth}>{month.toLocaleString('default',{month:'long'})} {month.getFullYear()}</Text>
+                  <Text style={styles.calSub}>{incomes.length===0?'ADD INCOME TO SET PAYDAY':'PAYDAY '+incomes.map(i=>i.day).join(', ')}</Text>
+                </View>
+                <Pressable onPress={()=>setMonth(new Date(month.getFullYear(), month.getMonth()+1,1))} style={styles.calNav}><Text style={styles.calNavText}>›</Text></Pressable>
+              </View>
+              <View style={styles.weekRow}><Text style={styles.weekDay}>S</Text><Text style={styles.weekDay}>M</Text><Text style={styles.weekDay}>T</Text><Text style={styles.weekDay}>W</Text><Text style={styles.weekDay}>T</Text><Text style={styles.weekDay}>F</Text><Text style={styles.weekDay}>S</Text></View>
+              <View style={styles.calGrid}>{renderCal()}</View>
+              <View style={styles.legendRow}><View style={styles.legendDotRow}><View style={[styles.legendDot,{backgroundColor:LIME}]}/><Text style={styles.legendText}>Income</Text></View><View style={styles.legendDotRow}><View style={[styles.legendDot,{backgroundColor:'#fff8b0'}]}/><Text style={styles.legendText}>Bill</Text></View></View>
+            </View>
+
+            <View style={styles.quickCard}>
+              <Text style={styles.quickLabel}>QUICK ADD - AUTO REMOVES AFTER 7 DAYS</Text>
+              <View style={styles.quickRow}>
+                <TextInput style={[styles.quickInput,{flex:1}]} placeholder="What did you buy?" value={quickName} onChangeText={setQuickName} placeholderTextColor="#aaa"/>
+                <TextInput style={styles.quickAmt} placeholder="£0" value={quickAmt} onChangeText={setQuickAmt} keyboardType="numeric" placeholderTextColor="#aaa"/>
+                <Pressable style={styles.quickPlus} onPress={addQuick}><Text style={styles.quickPlusText}>+</Text></Pressable>
+              </View>
+              {spends.map(s=><View key={s.id} style={styles.quickItem}><Text style={styles.quickItemName}>{s.name}</Text><Text style={styles.quickItemAmt}>-£{s.amount}</Text></View>)}
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={{padding:20, paddingBottom:10}}>
+              <Text style={styles.bigSection}>INCOMES - BLANK START</Text>
+              <Text style={styles.smallDesc}>Add your paydays. Saves to phone memory automatically.</Text>
+            </View>
+            <View style={styles.formCard}>
+              <View style={styles.formRow}>
+                <TextInput style={[styles.formInput,{flex:1.2}]} placeholder="Income name" value={incName} onChangeText={setIncName} placeholderTextColor="#999"/>
+                <TextInput style={styles.formSmall} placeholder="£" value={incAmt} onChangeText={setIncAmt} keyboardType="numeric" placeholderTextColor="#999"/>
+                <TextInput style={styles.formSmall} placeholder="Day" value={incDay} onChangeText={setIncDay} keyboardType="numeric" placeholderTextColor="#999"/>
+              </View>
+              <View style={styles.formRow}>
+                <Pressable onPress={()=>setIncFreq('Weekly')} style={[styles.chip, incFreq==='Weekly'&&styles.chipActive]}><Text style={[styles.chipText, incFreq==='Weekly'&&styles.chipActiveText]}>Weekly</Text></Pressable>
+                <Pressable onPress={()=>setIncFreq('Monthly')} style={[styles.chip, incFreq==='Monthly'&&styles.chipActive]}><Text style={[styles.chipText, incFreq==='Monthly'&&styles.chipActiveText]}>Monthly</Text></Pressable>
+                <Pressable style={styles.addBlack} onPress={addIncome}><Text style={styles.addBlackText}>Add</Text></Pressable>
+              </View>
+              {incomes.map(i=><View key={i.id} style={styles.listRow}><Text style={styles.listName}>{i.name} • Day {i.day} • {i.freq}</Text><Text style={styles.listAmt}>+£{i.amount}</Text></View>)}
+            </View>
+
+            <View style={{padding:20, paddingBottom:10, marginTop:10}}>
+              <Text style={styles.bigSection}>BILLS - BLANK START</Text>
+              <Text style={styles.smallDesc}>Auto-deducted. Weekly budget drops automatically.</Text>
+            </View>
+            <View style={styles.formCard}>
+              <View style={styles.formRow}>
+                <TextInput style={[styles.formInput,{flex:1.2}]} placeholder="Bill name" value={billName} onChangeText={setBillName} placeholderTextColor="#999"/>
+                <TextInput style={styles.formSmall} placeholder="£" value={billAmt} onChangeText={setBillAmt} keyboardType="numeric" placeholderTextColor="#999"/>
+                <TextInput style={styles.formSmall} placeholder="Day" value={billDay} onChangeText={setBillDay} keyboardType="numeric" placeholderTextColor="#999"/>
+              </View>
+              <View style={styles.formRow}>
+                <Pressable onPress={()=>setBillFreq('Weekly')} style={[styles.chip, billFreq==='Weekly'&&styles.chipActive]}><Text style={[styles.chipText, billFreq==='Weekly'&&styles.chipActiveText]}>Weekly</Text></Pressable>
+                <Pressable onPress={()=>setBillFreq('Monthly')} style={[styles.chip, billFreq==='Monthly'&&styles.chipActive]}><Text style={[styles.chipText, billFreq==='Monthly'&&styles.chipActiveText]}>Monthly</Text></Pressable>
+                <Pressable style={styles.addBlack} onPress={addBill}><Text style={styles.addBlackText}>Add</Text></Pressable>
+              </View>
+              {bills.map(b=><View key={b.id} style={styles.listRow}><Text style={styles.listName}>{b.name} • Day {b.day} • {b.freq}</Text><Text style={styles.listAmtNeg}>-£{b.amount}</Text></View>)}
+            </View>
+
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryLabel}>SUMMARY - PHONE MEMORY</Text>
+              <Text style={styles.summaryMain}>£{totalIncome} income - £{totalBills} bills = £{totalIncome-totalBills}</Text>
+              <Text style={styles.summaryBig}>£{weekly>0?weekly.toFixed(0):'0'}/week to spend</Text>
+              <Text style={styles.summarySub}>Saved to phone automatically - no data when fresh install</Text>
+            </View>
+
+            <Pressable style={styles.clearBtn} onPress={()=>{setIncomes([]);setBills([]);setSpends([]); AsyncStorage.clear();}}>
+              <Text style={styles.clearText}>Clear Phone Memory</Text>
+            </Pressable>
+          </>
+        )}
+      </ScrollView>
+
+      <View style={styles.bottomTabs}>
+        <Pressable onPress={()=>setTab('cal')} style={[styles.bottomTab, tab==='cal'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='cal'&&styles.bottomTabActiveText]}>Calendar</Text></Pressable>
+        <Pressable onPress={()=>setTab('bills')} style={[styles.bottomTab, tab==='bills'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='bills'&&styles.bottomTabActiveText]}>Bills & Income</Text></Pressable>
       </View>
-
-      <View style={styles.tabs}>
-        <Pressable onPress={()=>setTab('calendar')} style={[styles.tab, tab==='calendar'&&styles.tabActive]}><Text style={[styles.tabText, tab==='calendar'&&styles.tabTextActive]}>📅 Calendar</Text></Pressable>
-        <Pressable onPress={()=>setTab('manage')} style={[styles.tab, tab==='manage'&&styles.tabActive]}><Text style={[styles.tabText, tab==='manage'&&styles.tabTextActive]}>💷 Bills & Income</Text></Pressable>
-      </View>
-
-      {tab==='calendar' ? (
-        <ScrollView style={styles.body}>
-          <View style={styles.bigCard}>
-            <Text style={styles.bigLabel}>YOU CAN SPEND THIS WEEK</Text>
-            <Text style={styles.bigAmount}>£{canSpend>0?canSpend.toFixed(2):'0.00'}</Text>
-            <Text style={styles.bigSub}>Weekly pot £{weeklyPot.toFixed(2)} • Spent £{totalSpendsWeek.toFixed(2)} • Bills £{totalBillsWeekly.toFixed(2)}/wk</Text>
-          </View>
-
-          <Text style={styles.sectionTitle}>{selectedDate.toLocaleString('default',{month:'long'})} {year}</Text>
-          <View style={styles.calGrid}>{renderCalendar()}</View>
-          <View style={styles.legend}><View style={styles.legendRow}><View style={styles.dotIncome}/><Text style={styles.legendText}>Income</Text></View><View style={styles.legendRow}><View style={styles.dotBill}/><Text style={styles.legendText}>Bill</Text></View></View>
-
-          <View style={styles.dateList}>
-            {incomes.filter(i=>i.day===today.getDate()).map(i=><View key={i.id} style={styles.eventRow}><View style={styles.eventDotIncome}/><Text style={styles.eventName}>{i.name}</Text><Text style={styles.eventAmt}>+£{i.amount.toFixed(2)}</Text></View>)}
-            {bills.filter(b=>b.day===today.getDate()).map(b=><View key={b.id} style={styles.eventRow}><View style={styles.eventDotBill}/><Text style={styles.eventName}>{b.name} ({b.freq})</Text><Text style={styles.eventAmt}>-£{b.amount.toFixed(2)}</Text></View>)}
-          </View>
-
-          <Text style={styles.sectionTitle}>Quick Add — Shop (takes off weekly)</Text>
-          <View style={styles.quickRow}>
-            <TextInput style={[styles.input, {flex:1}]} placeholder="e.g. Tesco, Fuel" value={quickName} onChangeText={setQuickName} placeholderTextColor="#999" />
-            <TextInput style={[styles.input, {width:100, marginLeft:8}]} placeholder="£" value={quickAmt} onChangeText={setQuickAmt} keyboardType="numeric" placeholderTextColor="#999" />
-          </View>
-          <Pressable style={styles.addBtn} onPress={addQuick}><Text style={styles.addBtnText}>Add — Deduct from this week</Text></Pressable>
-
-          <View style={styles.list}>
-            {spends.slice(-10).reverse().map(s=><View key={s.id} style={styles.row}><Text style={styles.rowName}>{s.name}</Text><Text style={styles.rowAmt}>-£{s.amount.toFixed(2)}</Text></View>)}
-          </View>
-          <View style={{height:120}}/>
-        </ScrollView>
-      ) : (
-        <ScrollView style={styles.body}>
-          {incomes.length===0 && bills.length===0 && (
-            <View style={styles.welcome}><Text style={styles.welcomeTitle}>👋 Welcome! No data yet.</Text><Text style={styles.welcomeSub}>Add your incomes first, then bills</Text></View>
-          )}
-
-          <Text style={styles.sectionTitle}>Add Income (as many as you like)</Text>
-          <TextInput style={styles.input} placeholder="Income name" value={incName} onChangeText={setIncName} placeholderTextColor="#999" />
-          <View style={styles.quickRow}>
-            <TextInput style={[styles.input,{flex:1}]} placeholder="Amount" value={incAmt} onChangeText={setIncAmt} keyboardType="numeric" placeholderTextColor="#999" />
-            <TextInput style={[styles.input,{width:80,marginLeft:8}]} placeholder="Day" value={incDate} onChangeText={setIncDate} keyboardType="numeric" placeholderTextColor="#999" />
-          </View>
-          <Pressable style={styles.addBtnGreen} onPress={addIncome}><Text style={styles.addBtnGreenText}>+ Add Income</Text></Pressable>
-
-          <View style={styles.list}>
-            {incomes.map(i=><View key={i.id} style={styles.rowGreen}><Text style={styles.rowName}>{i.name} — Day {i.day}</Text><Text style={styles.rowAmtGreen}>+£{i.amount.toFixed(2)}</Text></View>)}
-          </View>
-
-          <Text style={styles.sectionTitle}>Add Bill — Pick Monthly or Weekly</Text>
-          <TextInput style={styles.input} placeholder="Bill name" value={billName} onChangeText={setBillName} placeholderTextColor="#999" />
-          <View style={styles.quickRow}>
-            <TextInput style={[styles.input,{flex:1}]} placeholder="Amount" value={billAmt} onChangeText={setBillAmt} keyboardType="numeric" placeholderTextColor="#999" />
-            <TextInput style={[styles.input,{width:70,marginLeft:8}]} placeholder="Day" value={billDay} onChangeText={setBillDay} keyboardType="numeric" placeholderTextColor="#999" />
-          </View>
-          <View style={styles.freqRow}>
-            <Pressable onPress={()=>setBillFreq('monthly')} style={[styles.freqBtn, billFreq==='monthly'&&styles.freqActive]}><Text style={[styles.freqText, billFreq==='monthly'&&styles.freqTextActive]}>Monthly</Text></Pressable>
-            <Pressable onPress={()=>setBillFreq('weekly')} style={[styles.freqBtn, billFreq==='weekly'&&styles.freqActive]}><Text style={[styles.freqText, billFreq==='weekly'&&styles.freqTextActive]}>Weekly</Text></Pressable>
-          </View>
-          <Pressable style={[styles.keepRow, billKeep&&styles.keepActive]} onPress={()=>setBillKeep(!billKeep)}><Text style={styles.keepText}>{billKeep?'✓ Keep going till unticked':'○ One time only'}</Text></Pressable>
-          <Pressable style={styles.addBtn} onPress={addBill}><Text style={styles.addBtnText}>+ Add Bill ({billFreq})</Text></Pressable>
-
-          <View style={styles.list}>
-            {bills.map(b=><View key={b.id} style={styles.row}><View><Text style={styles.rowName}>{b.name} {b.keep?'↻':''}</Text><Text style={styles.rowSub}>{b.freq} • Day {b.day}</Text></View><Text style={styles.rowAmt}>-£{b.amount.toFixed(2)}</Text></View>)}
-          </View>
-
-          <Pressable style={styles.resetBtn} onPress={()=>{setIncomes([]);setBills([]);setSpends([]); AsyncStorage.clear();}}><Text style={styles.resetText}>Reset All Data</Text></Pressable>
-          <View style={{height:120}}/>
-        </ScrollView>
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1, backgroundColor:'#fafaf8'},
-  header:{backgroundColor:LIME, padding:20, paddingTop:50, borderBottomLeftRadius:24, borderBottomRightRadius:24},
-  headerTitle:{fontSize:28, fontWeight:'900', color:BLACK},
-  headerAmt:{fontSize:20, fontWeight:'800', color:BLACK, marginTop:4},
-  headerSub:{fontSize:12, fontWeight:'600', color:BLACK, opacity:0.6, marginTop:4},
-  tabs:{flexDirection:'row', padding:12, gap:10},
-  tab:{flex:1, backgroundColor:'white', padding:14, borderRadius:14, alignItems:'center', borderWidth:1, borderColor:'#e5e5e5'},
-  tabActive:{backgroundColor:BLACK, borderColor:BLACK},
-  tabText:{fontWeight:'800', color:BLACK},
-  tabTextActive:{color:LIME},
-  body:{padding:16},
-  bigCard:{backgroundColor:BLACK, borderRadius:24, padding:20, marginBottom:16},
-  bigLabel:{color:'white', opacity:0.6, fontSize:11, fontWeight:'700'},
-  bigAmount:{color:'white', fontSize:34, fontWeight:'900', marginTop:6},
-  bigSub:{color:'white', opacity:0.5, fontSize:11, marginTop:6},
-  sectionTitle:{fontSize:15, fontWeight:'800', marginTop:16, marginBottom:8, color:BLACK},
-  input:{backgroundColor:'white', borderRadius:12, padding:14, borderWidth:1, borderColor:'#ddd', color:BLACK, marginTop:8},
-  quickRow:{flexDirection:'row', alignItems:'center'},
-  addBtn:{backgroundColor:BLACK, borderRadius:12, padding:14, marginTop:10, alignItems:'center'},
-  addBtnText:{color:LIME, fontWeight:'900'},
-  addBtnGreen:{backgroundColor:LIME, borderRadius:12, padding:14, marginTop:10, alignItems:'center', borderWidth:1, borderColor:BLACK},
-  addBtnGreenText:{color:BLACK, fontWeight:'900'},
-  list:{marginTop:10},
-  row:{backgroundColor:'white', padding:14, borderRadius:12, marginTop:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:1, borderColor:'#eee'},
-  rowGreen:{backgroundColor:'#f7ffcc', padding:14, borderRadius:12, marginTop:8, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:1, borderColor:LIME},
-  rowName:{fontWeight:'700', color:BLACK},
-  rowSub:{fontSize:11, color:'#666', marginTop:2},
-  rowAmt:{fontWeight:'800', color:BLACK},
-  rowAmtGreen:{fontWeight:'800', color:BLACK},
-  freqRow:{flexDirection:'row', gap:8, marginTop:8},
-  freqBtn:{flex:1, padding:12, borderRadius:12, backgroundColor:'white', borderWidth:1, borderColor:'#ddd', alignItems:'center'},
-  freqActive:{backgroundColor:BLACK, borderColor:BLACK},
-  freqText:{fontWeight:'800', color:BLACK},
-  freqTextActive:{color:LIME},
-  keepRow:{backgroundColor:'white', padding:12, borderRadius:12, marginTop:8, borderWidth:1, borderColor:'#ddd'},
-  keepActive:{borderColor:LIME, backgroundColor:'#f7ffcc'},
-  keepText:{fontWeight:'700', color:BLACK},
-  calGrid:{flexDirection:'row', flexWrap:'wrap', backgroundColor:'white', borderRadius:16, padding:8, borderWidth:1, borderColor:'#eee'},
-  calDay:{width:'14.28%', aspectRatio:1, alignItems:'center', justifyContent:'center', borderRadius:10, marginVertical:2},
-  calEmpty:{width:'14.28%', aspectRatio:1},
-  calHas:{backgroundColor:'#f0f0f0'},
-  calToday:{backgroundColor:BLACK},
-  calDayText:{fontWeight:'600', color:BLACK, fontSize:13},
-  calTodayText:{color:LIME},
+  container:{flex:1, backgroundColor:'#f6f6f5'},
+  blackCard:{backgroundColor:BLACK, margin:16, marginTop:18, borderRadius:32, padding:22},
+  blackTopRow:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
+  blackTopLabel:{color:'#777', fontSize:11, fontWeight:'800', letterSpacing:1},
+  weekPill:{backgroundColor:'#222', borderRadius:20, paddingHorizontal:14, paddingVertical:6},
+  weekPillText:{color:'white', fontWeight:'800', fontSize:12},
+  bigMoney:{color:'white', fontSize:52, fontWeight:'900', marginTop:18, letterSpacing:-1},
+  noData:{color:'#666', fontSize:11, fontWeight:'700', letterSpacing:1.2, marginTop:8},
+  divider:{height:1, backgroundColor:'#222', marginTop:20},
+  threeCol:{flexDirection:'row', marginTop:18},
+  col:{flex:1},
+  colMid:{flex:1, borderLeftWidth:1, borderRightWidth:1, borderColor:'#222', paddingLeft:16},
+  colLabel:{color:'#555', fontSize:10, fontWeight:'800', letterSpacing:1},
+  colVal:{color:'white', fontWeight:'800', marginTop:4, fontSize:16},
+  limeWelcome:{backgroundColor:LIME, marginHorizontal:16, borderRadius:24, padding:20, alignItems:'center'},
+  welcomeTitle:{fontWeight:'900', fontSize:16, color:BLACK},
+  welcomeSub:{textAlign:'center', marginTop:8, color:BLACK, fontSize:13, lineHeight:18},
+  calCard:{backgroundColor:'white', margin:16, borderRadius:28, padding:16, shadowColor:'#000', shadowOpacity:0.05, shadowRadius:10},
+  calHeader:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:8, paddingVertical:8},
+  calNav:{width:40, height:40, borderRadius:20, backgroundColor:'#f5f5f5', alignItems:'center', justifyContent:'center'},
+  calNavText:{fontSize:18, fontWeight:'700'},
+  calMonth:{fontWeight:'900', fontSize:18, color:BLACK},
+  calSub:{color:'#999', fontSize:10, fontWeight:'700', marginTop:2, letterSpacing:0.8},
+  weekRow:{flexDirection:'row', marginTop:16, paddingHorizontal:4},
+  weekDay:{flex:1, textAlign:'center', color:'#ccc', fontWeight:'700', fontSize:12},
+  calGrid:{flexDirection:'row', flexWrap:'wrap', marginTop:8},
+  calCell:{width:'14.28%', aspectRatio:1, alignItems:'center', justifyContent:'center', borderRadius:16},
+  calCellEmpty:{width:'14.28%', aspectRatio:1},
+  calToday:{backgroundColor:'white', borderWidth:2, borderColor:BLACK, borderRadius:28},
+  calText:{fontWeight:'600', color:BLACK},
+  calTodayText:{fontWeight:'900'},
   calDots:{flexDirection:'row', gap:3, marginTop:2},
-  dotIncome:{width:5, height:5, borderRadius:3, backgroundColor:LIME, borderWidth:0.5, borderColor:BLACK},
-  dotBill:{width:5, height:5, borderRadius:3, backgroundColor:BLACK},
-  legend:{flexDirection:'row', gap:16, marginTop:10, paddingHorizontal:4},
-  legendRow:{flexDirection:'row', alignItems:'center', gap:6},
-  legendText:{fontSize:11, color:'#666', fontWeight:'600'},
-  dateList:{marginTop:12},
-  eventRow:{flexDirection:'row', alignItems:'center', backgroundColor:'white', padding:12, borderRadius:10, marginTop:6, borderWidth:1, borderColor:'#eee'},
-  eventDotIncome:{width:8, height:8, borderRadius:4, backgroundColor:LIME, marginRight:8, borderWidth:1, borderColor:BLACK},
-  eventDotBill:{width:8, height:8, borderRadius:4, backgroundColor:BLACK, marginRight:8},
-  eventName:{flex:1, fontWeight:'700', color:BLACK, fontSize:13},
-  eventAmt:{fontWeight:'800', color:BLACK, fontSize:13},
-  welcome:{backgroundColor:'white', padding:20, borderRadius:16, alignItems:'center', marginBottom:16, borderWidth:1, borderColor:'#eee'},
-  welcomeTitle:{fontWeight:'800', color:BLACK},
-  welcomeSub:{fontSize:12, color:'#666', marginTop:4},
-  resetBtn:{marginTop:24, alignItems:'center', padding:12},
-  resetText:{color:'#999', fontWeight:'700'}
+  dot:{width:5, height:5, borderRadius:3},
+  legendRow:{flexDirection:'row', justifyContent:'center', gap:18, marginTop:18, marginBottom:6},
+  legendDotRow:{flexDirection:'row', alignItems:'center', gap:6},
+  legendDot:{width:10, height:10, borderRadius:5},
+  legendText:{color:'#aaa', fontSize:12, fontWeight:'600'},
+  quickCard:{backgroundColor:'white', margin:16, borderRadius:24, padding:16, borderWidth:1.5, borderColor:LIME},
+  quickLabel:{color:'#aaa', fontSize:10, fontWeight:'800', letterSpacing:1},
+  quickRow:{flexDirection:'row', marginTop:12, gap:8, alignItems:'center'},
+  quickInput:{backgroundColor:'#f6f6f5', borderRadius:14, padding:14, flex:1, color:BLACK},
+  quickAmt:{backgroundColor:'#f6f6f5', borderRadius:14, padding:14, width:80, color:BLACK, fontWeight:'700'},
+  quickPlus:{width:50, height:50, borderRadius:25, backgroundColor:LIME, alignItems:'center', justifyContent:'center'},
+  quickPlusText:{fontSize:22, fontWeight:'900', color:BLACK},
+  quickItem:{flexDirection:'row', justifyContent:'space-between', marginTop:10, backgroundColor:'#fafafa', padding:12, borderRadius:10},
+  quickItemName:{fontWeight:'700', color:BLACK},
+  quickItemAmt:{fontWeight:'800', color:BLACK},
+  bigSection:{fontSize:20, fontWeight:'900', color:BLACK, letterSpacing:-0.5},
+  smallDesc:{color:'#999', fontSize:12, marginTop:4},
+  formCard:{backgroundColor:'white', marginHorizontal:16, borderRadius:24, padding:16},
+  formRow:{flexDirection:'row', gap:8, marginTop:10, alignItems:'center'},
+  formInput:{backgroundColor:'#f7f7f5', borderRadius:14, padding:14, color:BLACK},
+  formSmall:{backgroundColor:'#f7f7f5', borderRadius:14, padding:14, width:64, textAlign:'center', color:BLACK},
+  chip:{paddingHorizontal:16, paddingVertical:10, borderRadius:20, backgroundColor:'#f0f0ef'},
+  chipActive:{backgroundColor:BLACK},
+  chipText:{fontWeight:'700', color:'#999', fontSize:12},
+  chipActiveText:{color:'white'},
+  addBlack:{flex:1, backgroundColor:BLACK, borderRadius:14, padding:14, alignItems:'center'},
+  addBlackText:{color:'white', fontWeight:'900'},
+  listRow:{flexDirection:'row', justifyContent:'space-between', marginTop:12, paddingTop:12, borderTopWidth:1, borderColor:'#f0f0f0'},
+  listName:{fontWeight:'600', color:BLACK, fontSize:12},
+  listAmt:{fontWeight:'800', color:BLACK},
+  listAmtNeg:{fontWeight:'800', color:'#ff5a5a'},
+  summaryCard:{backgroundColor:BLACK, margin:16, borderRadius:28, padding:22, marginTop:20},
+  summaryLabel:{color:'#666', fontSize:11, fontWeight:'800', letterSpacing:1},
+  summaryMain:{color:'white', marginTop:10, fontSize:14, fontWeight:'600'},
+  summaryBig:{color:LIME, fontSize:28, fontWeight:'900', marginTop:12},
+  summarySub:{color:'#555', fontSize:11, marginTop:10},
+  clearBtn:{marginHorizontal:16, backgroundColor:'#ffecec', borderRadius:20, padding:16, alignItems:'center', borderWidth:1, borderColor:'#ffd2d2'},
+  clearText:{color:'#ff5a5a', fontWeight:'800'},
+  bottomTabs:{position:'absolute', bottom:14, left:14, right:14, backgroundColor:'white', borderRadius:28, padding:8, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.08, shadowRadius:20, elevation:10},
+  bottomTab:{flex:1, padding:16, borderRadius:22, alignItems:'center'},
+  bottomTabActive:{backgroundColor:BLACK},
+  bottomTabText:{fontWeight:'800', color:'#aaa'},
+  bottomTabActiveText:{color:'white'}
 });
