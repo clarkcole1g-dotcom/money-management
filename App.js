@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LIME = '#C6FF00';
@@ -90,8 +91,10 @@ export default function App(){
   };
 
   return (
+    <SafeAreaView style={{flex:1, backgroundColor:'#f6f6f5'}} edges={['top','bottom']}>
+    <StatusBar barStyle="dark-content" backgroundColor="#f6f6f5" />
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}} contentContainerStyle={{paddingBottom:140}}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}} contentContainerStyle={{paddingBottom:160}}>
         {tab==='cal' ? (
           <>
             <View style={styles.blackCard}>
@@ -197,11 +200,12 @@ export default function App(){
         <Pressable onPress={()=>setTab('bills')} style={[styles.bottomTab, tab==='bills'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='bills'&&styles.bottomTabActiveText]}>Bills & Income</Text></Pressable>
       </View>
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1, backgroundColor:'#f6f6f5'},
+  container:{flex:1, backgroundColor:'#f6f6f5', paddingTop: Platform.OS==='android' ? (StatusBar.currentHeight||24)+6 : 40, position:'relative'},
   blackCard:{backgroundColor:BLACK, margin:16, marginTop:18, borderRadius:32, padding:22},
   blackTopRow:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
   blackTopLabel:{color:'#777', fontSize:11, fontWeight:'800', letterSpacing:1},
@@ -271,7 +275,7 @@ const styles = StyleSheet.create({
   summarySub:{color:'#555', fontSize:11, marginTop:10},
   clearBtn:{marginHorizontal:16, backgroundColor:'#ffecec', borderRadius:20, padding:16, alignItems:'center', borderWidth:1, borderColor:'#ffd2d2'},
   clearText:{color:'#ff5a5a', fontWeight:'800'},
-  bottomTabs:{position:'absolute', bottom:14, left:14, right:14, backgroundColor:'white', borderRadius:28, padding:8, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.08, shadowRadius:20, elevation:10},
+  bottomTabs:{position:'absolute', bottom: Platform.OS==='android'? 18 : 24, left:14, right:14, backgroundColor:'white', borderRadius:30, padding:6, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.12, shadowRadius:24, elevation:12, zIndex:100},
   bottomTab:{flex:1, padding:16, borderRadius:22, alignItems:'center'},
   bottomTabActive:{backgroundColor:BLACK},
   bottomTabText:{fontWeight:'800', color:'#aaa'},
