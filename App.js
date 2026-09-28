@@ -200,6 +200,7 @@ const styles = StyleSheet.create({
   topSafe:{height: Platform.OS==='android' ? (StatusBar.currentHeight||0) : 0, backgroundColor:'#f6f6f5'},
   bottomSafe:{height: 0, backgroundColor:'#f6f6f5'},
   blackCard:{backgroundColor:BLACK, margin:16, marginTop:4, marginBottom:8, borderRadius:32, padding:22},
+  blackCardFixed:{backgroundColor:BLACK, margin:16, marginTop:4, marginBottom:8, borderRadius:32, padding:22},
   blackTopRow:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
   blackTopLabel:{color:'#777', fontSize:11, fontWeight:'800', letterSpacing:1},
   weekPill:{backgroundColor:'#222', borderRadius:20, paddingHorizontal:14, paddingVertical:6},
