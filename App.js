@@ -1,45 +1,62 @@
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, FlatList } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LIME = '#C6FF00';
+const BLACK = '#0a0a0a';
 
 export default function App() {
-  const [amount, setAmount] = useState('');
-  const [note, setNote] = useState('');
-  const [tx, setTx] = useState([]);
+  const [income, setIncome] = useState(0);
+  const [incomeName, setIncomeName] = useState('');
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [bills, setBills] = useState([]);
+  const [billName, setBillName] = useState('');
+  const [billAmount, setBillAmount] = useState('');
+  const [billKeep, setBillKeep] = useState(true);
+  const [week, setWeek] = useState(1);
+  const [spends, setSpends] = useState([]);
+  const [spendName, setSpendName] = useState('');
+  const [spendAmount, setSpendAmount] = useState('');
 
-  const add = () => {
-    if(!amount) return;
-    setTx([{ id: Date.now().toString(), amount: parseFloat(amount), note: note || 'Expense' }, ...tx]);
-    setAmount(''); setNote('');
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem('mm_data');
+        if (saved) {
+          const d = JSON.parse(saved);
+          setIncome(d.income || 0);
+          setBills(d.bills || []);
+          setSpends(d.spends || []);
+        }
+      } catch {}
+    })();
+  }, []);
+
+  useEffect(() => {
+    AsyncStorage.setItem('mm_data', JSON.stringify({ income, bills, spends }));
+  }, [income, bills, spends]);
+
+  const totalBills = bills.reduce((s, b) => s + b.amount, 0);
+  const totalSpendsThisWeek = spends.filter(s => s.week === week).reduce((s, b) => s + b.amount, 0);
+  const weeklyPot = income ? (income - totalBills) / 4 : 0;
+  const canSpend = weeklyPot - totalSpendsThisWeek;
+
+  const addIncome = () => {
+    const amt = parseFloat(incomeAmount);
+    if (!incomeName || !amt) return;
+    setIncome(income + amt);
+    setIncomeName('');
+    setIncomeAmount('');
   };
 
-  const total = tx.reduce((s, t) => s + t.amount, 0);
+  const addBill = () => {
+    const amt = parseFloat(billAmount);
+    if (!billName || !amt) return;
+    setBills([...bills, { id: Date.now().toString(), name: billName, amount: amt, keep: billKeep }]);
+    setBillName('');
+    setBillAmount('');
+  };
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Money Manager</Text>
-        <Text style={styles.total}>£{total.toFixed(2)}</Text>
-      </View>
-      <View style={styles.box}>
-        <TextInput style={styles.input} placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" />
-        <TextInput style={styles.input} placeholder="Note" value={note} onChangeText={setNote} />
-        <TouchableOpacity style={styles.btn} onPress={add}><Text style={styles.btnT}>Add</Text></TouchableOpacity>
-      </View>
-      <FlatList data={tx} keyExtractor={i=>i.id} renderItem={({item})=>(
-        <View style={styles.row}><Text>{item.note}</Text><Text>£{item.amount.toFixed(2)}</Text></View>
-      )} />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingTop: 50 },
-  header: { backgroundColor: '#C6FF00', padding: 20 },
-  title: { fontSize: 26, fontWeight: 'bold' },
-  total: { fontSize: 18, marginTop: 5 },
-  box: { padding: 15 },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 12, borderRadius: 8, marginBottom: 8 },
-  btn: { backgroundColor: '#000', padding: 14, borderRadius: 8, alignItems: 'center' },
-  btnT: { color: '#C6FF00', fontWeight: 'bold' },
-  row: { flexDirection: 'row', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderColor: '#eee' }
-});
+  const addSpend = () => {
+    const amt = parseFloat(spendAmount);
+    if (!spendName
