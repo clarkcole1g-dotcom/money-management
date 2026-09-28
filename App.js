@@ -1,19 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LIME = '#C6FF00';
 const BLACK = '#0a0a0a';
 
 export default function App(){
-  const [tab, setTab] = useState('cal'); // cal | bills
+  const [tab, setTab] = useState('cal');
   const [incomes, setIncomes] = useState([]);
   const [bills, setBills] = useState([]);
   const [spends, setSpends] = useState([]);
   const [month, setMonth] = useState(new Date());
-
-  // inputs
   const [incName, setIncName] = useState('');
   const [incAmt, setIncAmt] = useState('');
   const [incDay, setIncDay] = useState('');
@@ -35,12 +32,11 @@ export default function App(){
   },[]);
   useEffect(()=>{ AsyncStorage.setItem('mm_data_v3', JSON.stringify({incomes,bills,spends})); },[incomes,bills,spends]);
 
-  // cleanup quick adds after 7 days
   useEffect(()=>{
     const now = Date.now();
     const filtered = spends.filter(s=> now - new Date(s.date).getTime() < 7*24*60*60*1000 );
     if(filtered.length!==spends.length) setSpends(filtered);
-  },[spends.length]);
+  },[]);
 
   const totalIncome = incomes.reduce((a,b)=>a+b.amount,0);
   const totalBills = bills.reduce((a,b)=>a+b.amount,0);
@@ -48,23 +44,9 @@ export default function App(){
   const weekly = totalIncome>0 ? (totalIncome - totalBills)/4.333 : 0;
   const weeklyLeft = weekly - totalSpent;
 
-  const addIncome = ()=>{
-    const amt=parseFloat(incAmt); if(!incName||!amt) return;
-    const day=parseInt(incDay)||1;
-    setIncomes([...incomes,{id:Date.now().toString(), name:incName, amount:amt, day, freq:incFreq}]);
-    setIncName(''); setIncAmt(''); setIncDay('');
-  };
-  const addBill = ()=>{
-    const amt=parseFloat(billAmt); if(!billName||!amt) return;
-    const day=parseInt(billDay)||1;
-    setBills([...bills,{id:Date.now().toString(), name:billName, amount:amt, day, freq:billFreq}]);
-    setBillName(''); setBillAmt(''); setBillDay('');
-  };
-  const addQuick = ()=>{
-    const amt=parseFloat(quickAmt); if(!quickName||!amt) return;
-    setSpends([...spends,{id:Date.now().toString(), name:quickName, amount:amt, date:new Date().toISOString()}]);
-    setQuickName(''); setQuickAmt('');
-  };
+  const addIncome = ()=>{ const amt=parseFloat(incAmt); if(!incName||!amt) return; const day=parseInt(incDay)||1; setIncomes([...incomes,{id:Date.now().toString(), name:incName, amount:amt, day, freq:incFreq}]); setIncName(''); setIncAmt(''); setIncDay(''); };
+  const addBill = ()=>{ const amt=parseFloat(billAmt); if(!billName||!amt) return; const day=parseInt(billDay)||1; setBills([...bills,{id:Date.now().toString(), name:billName, amount:amt, day, freq:billFreq}]); setBillName(''); setBillAmt(''); setBillDay(''); };
+  const addQuick = ()=>{ const amt=parseFloat(quickAmt); if(!quickName||!amt) return; setSpends([...spends,{id:Date.now().toString(), name:quickName, amount:amt, date:new Date().toISOString()}]); setQuickName(''); setQuickAmt(''); };
 
   const daysInMonth = new Date(month.getFullYear(), month.getMonth()+1, 0).getDate();
   const firstDay = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
@@ -82,7 +64,7 @@ export default function App(){
           <Text style={[styles.calText, isToday&&styles.calTodayText]}>{d}</Text>
           {(hasInc||hasBill)&&<View style={styles.calDots}>
             {hasInc&&<View style={[styles.dot,{backgroundColor:LIME}]}/>}
-            {hasBill&&<View style={[styles.dot,{backgroundColor:'#fff', opacity:0.8}]}/>}
+            {hasBill&&<View style={[styles.dot,{backgroundColor:'#fff8b0'}]}/>}
           </View>}
         </View>
       );
@@ -91,34 +73,39 @@ export default function App(){
   };
 
   return (
-    <SafeAreaView style={{flex:1, backgroundColor:'#f6f6f5'}} edges={['top','bottom']}>
-    <StatusBar barStyle="dark-content" backgroundColor="#f6f6f5" />
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} style={{flex:1}} contentContainerStyle={{paddingBottom:160}}>
+    <View style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#f6f6f5" />
+      {/* TOP SAFE SPACE - so you see 2:43 time */}
+      <View style={styles.topSafe} />
+      
+      {/* BLACK CARD - FIXED TOP, NEVER MOVES */}
+      {tab==='cal' && (
+        <View style={styles.blackCard}>
+          <View style={styles.blackTopRow}>
+            <Text style={styles.blackTopLabel}>ADD INCOME TO START</Text>
+            <View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyLeft>0?weeklyLeft.toFixed(0):'0'} / WEEK</Text></View>
+          </View>
+          <Text style={styles.bigMoney}>£{weekly>0?weeklyLeft.toFixed(2):'0.00'}</Text>
+          <Text style={styles.noData}>{incomes.length===0?'NO DATA - ADD INCOME & BILLS':'£'+totalIncome.toFixed(0)+' IN - £'+totalBills.toFixed(0)+' BILLS'}</Text>
+          <View style={styles.divider}/>
+          <View style={styles.threeCol}>
+            <View style={styles.col}><Text style={styles.colLabel}>SPENT</Text><Text style={styles.colVal}>£{totalSpent.toFixed(0)}</Text></View>
+            <View style={styles.colMid}><Text style={styles.colLabel}>INCOME</Text><Text style={styles.colVal}>£{totalIncome.toFixed(0)}</Text></View>
+            <View style={styles.col}><Text style={styles.colLabel}>BILLS</Text><Text style={[styles.colVal,{color:'#ff8a8a'}]}>-£{totalBills.toFixed(0)}</Text></View>
+          </View>
+        </View>
+      )}
+
+      {/* SCROLLABLE MIDDLE - ONLY THIS MOVES */}
+      <ScrollView style={styles.scroll} contentContainerStyle={{paddingBottom:110}} showsVerticalScrollIndicator={false}>
         {tab==='cal' ? (
           <>
-            <View style={styles.blackCard}>
-              <View style={styles.blackTopRow}>
-                <Text style={styles.blackTopLabel}>ADD INCOME TO START</Text>
-                <View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyLeft>0?weeklyLeft.toFixed(0):'0'} / WEEK</Text></View>
-              </View>
-              <Text style={styles.bigMoney}>£{weekly>0?weeklyLeft.toFixed(2):'0.00'}</Text>
-              <Text style={styles.noData}>{incomes.length===0?'NO DATA - ADD INCOME & BILLS':'£'+totalIncome.toFixed(0)+' IN - £'+totalBills.toFixed(0)+' BILLS'}</Text>
-              <View style={styles.divider}/>
-              <View style={styles.threeCol}>
-                <View style={styles.col}><Text style={styles.colLabel}>SPENT</Text><Text style={styles.colVal}>£{totalSpent.toFixed(0)}</Text></View>
-                <View style={styles.colMid}><Text style={styles.colLabel}>INCOME</Text><Text style={styles.colVal}>£{totalIncome.toFixed(0)}</Text></View>
-                <View style={styles.col}><Text style={styles.colLabel}>BILLS</Text><Text style={[styles.colVal,{color:'#ff8a8a'}]}>-£{totalBills.toFixed(0)}</Text></View>
-              </View>
-            </View>
-
             {incomes.length===0 && (
               <View style={styles.limeWelcome}>
                 <Text style={styles.welcomeTitle}>👋 Welcome! No data yet.</Text>
                 <Text style={styles.welcomeSub}>Go to £ Bills & Income tab and add your payday. It saves to your phone memory.</Text>
               </View>
             )}
-
             <View style={styles.calCard}>
               <View style={styles.calHeader}>
                 <Pressable onPress={()=>setMonth(new Date(month.getFullYear(), month.getMonth()-1,1))} style={styles.calNav}><Text style={styles.calNavText}>‹</Text></Pressable>
@@ -132,7 +119,6 @@ export default function App(){
               <View style={styles.calGrid}>{renderCal()}</View>
               <View style={styles.legendRow}><View style={styles.legendDotRow}><View style={[styles.legendDot,{backgroundColor:LIME}]}/><Text style={styles.legendText}>Income</Text></View><View style={styles.legendDotRow}><View style={[styles.legendDot,{backgroundColor:'#fff8b0'}]}/><Text style={styles.legendText}>Bill</Text></View></View>
             </View>
-
             <View style={styles.quickCard}>
               <Text style={styles.quickLabel}>QUICK ADD - AUTO REMOVES AFTER 7 DAYS</Text>
               <View style={styles.quickRow}>
@@ -162,7 +148,6 @@ export default function App(){
               </View>
               {incomes.map(i=><View key={i.id} style={styles.listRow}><Text style={styles.listName}>{i.name} • Day {i.day} • {i.freq}</Text><Text style={styles.listAmt}>+£{i.amount}</Text></View>)}
             </View>
-
             <View style={{padding:20, paddingBottom:10, marginTop:10}}>
               <Text style={styles.bigSection}>BILLS - BLANK START</Text>
               <Text style={styles.smallDesc}>Auto-deducted. Weekly budget drops automatically.</Text>
@@ -180,14 +165,12 @@ export default function App(){
               </View>
               {bills.map(b=><View key={b.id} style={styles.listRow}><Text style={styles.listName}>{b.name} • Day {b.day} • {b.freq}</Text><Text style={styles.listAmtNeg}>-£{b.amount}</Text></View>)}
             </View>
-
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>SUMMARY - PHONE MEMORY</Text>
               <Text style={styles.summaryMain}>£{totalIncome} income - £{totalBills} bills = £{totalIncome-totalBills}</Text>
               <Text style={styles.summaryBig}>£{weekly>0?weekly.toFixed(0):'0'}/week to spend</Text>
               <Text style={styles.summarySub}>Saved to phone automatically - no data when fresh install</Text>
             </View>
-
             <Pressable style={styles.clearBtn} onPress={()=>{setIncomes([]);setBills([]);setSpends([]); AsyncStorage.clear();}}>
               <Text style={styles.clearText}>Clear Phone Memory</Text>
             </Pressable>
@@ -195,18 +178,22 @@ export default function App(){
         )}
       </ScrollView>
 
-      <View style={styles.bottomTabs}>
+      {/* BOTTOM TABS - FIXED IN ONE SPOT, NEVER MOVES - OUTSIDE SCROLL */}
+      <View style={styles.bottomTabsFixed}>
         <Pressable onPress={()=>setTab('cal')} style={[styles.bottomTab, tab==='cal'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='cal'&&styles.bottomTabActiveText]}>Calendar</Text></Pressable>
         <Pressable onPress={()=>setTab('bills')} style={[styles.bottomTab, tab==='bills'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='bills'&&styles.bottomTabActiveText]}>Bills & Income</Text></Pressable>
       </View>
+      {/* BOTTOM SAFE SPACE - so you see Samsung ||| O < buttons */}
+      <View style={styles.bottomSafe} />
     </View>
-    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:{flex:1, backgroundColor:'#f6f6f5', paddingTop: Platform.OS==='android' ? (StatusBar.currentHeight||24)+6 : 40, position:'relative'},
-  blackCard:{backgroundColor:BLACK, margin:16, marginTop:18, borderRadius:32, padding:22},
+  root:{flex:1, backgroundColor:'#f6f6f5'},
+  topSafe:{height: Platform.OS==='android' ? (StatusBar.currentHeight||24) : 44, backgroundColor:'#f6f6f5'},
+  bottomSafe:{height: Platform.OS==='android' ? 56 : 34, backgroundColor:'#f6f6f5'},
+  blackCard:{backgroundColor:BLACK, margin:16, marginTop:4, marginBottom:8, borderRadius:32, padding:22},
   blackTopRow:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
   blackTopLabel:{color:'#777', fontSize:11, fontWeight:'800', letterSpacing:1},
   weekPill:{backgroundColor:'#222', borderRadius:20, paddingHorizontal:14, paddingVertical:6},
@@ -219,15 +206,16 @@ const styles = StyleSheet.create({
   colMid:{flex:1, borderLeftWidth:1, borderRightWidth:1, borderColor:'#222', paddingLeft:16},
   colLabel:{color:'#555', fontSize:10, fontWeight:'800', letterSpacing:1},
   colVal:{color:'white', fontWeight:'800', marginTop:4, fontSize:16},
-  limeWelcome:{backgroundColor:LIME, marginHorizontal:16, borderRadius:24, padding:20, alignItems:'center'},
+  scroll:{flex:1},
+  limeWelcome:{backgroundColor:LIME, marginHorizontal:16, borderRadius:24, padding:20, alignItems:'center', marginTop:8},
   welcomeTitle:{fontWeight:'900', fontSize:16, color:BLACK},
   welcomeSub:{textAlign:'center', marginTop:8, color:BLACK, fontSize:13, lineHeight:18},
-  calCard:{backgroundColor:'white', margin:16, borderRadius:28, padding:16, shadowColor:'#000', shadowOpacity:0.05, shadowRadius:10},
+  calCard:{backgroundColor:'white', margin:16, borderRadius:28, padding:16},
   calHeader:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', paddingHorizontal:8, paddingVertical:8},
   calNav:{width:40, height:40, borderRadius:20, backgroundColor:'#f5f5f5', alignItems:'center', justifyContent:'center'},
   calNavText:{fontSize:18, fontWeight:'700'},
   calMonth:{fontWeight:'900', fontSize:18, color:BLACK},
-  calSub:{color:'#999', fontSize:10, fontWeight:'700', marginTop:2, letterSpacing:0.8},
+  calSub:{color:'#999', fontSize:10, fontWeight:'700', marginTop:2},
   weekRow:{flexDirection:'row', marginTop:16, paddingHorizontal:4},
   weekDay:{flex:1, textAlign:'center', color:'#ccc', fontWeight:'700', fontSize:12},
   calGrid:{flexDirection:'row', flexWrap:'wrap', marginTop:8},
@@ -252,7 +240,7 @@ const styles = StyleSheet.create({
   quickItem:{flexDirection:'row', justifyContent:'space-between', marginTop:10, backgroundColor:'#fafafa', padding:12, borderRadius:10},
   quickItemName:{fontWeight:'700', color:BLACK},
   quickItemAmt:{fontWeight:'800', color:BLACK},
-  bigSection:{fontSize:20, fontWeight:'900', color:BLACK, letterSpacing:-0.5},
+  bigSection:{fontSize:20, fontWeight:'900', color:BLACK},
   smallDesc:{color:'#999', fontSize:12, marginTop:4},
   formCard:{backgroundColor:'white', marginHorizontal:16, borderRadius:24, padding:16},
   formRow:{flexDirection:'row', gap:8, marginTop:10, alignItems:'center'},
@@ -275,8 +263,8 @@ const styles = StyleSheet.create({
   summarySub:{color:'#555', fontSize:11, marginTop:10},
   clearBtn:{marginHorizontal:16, backgroundColor:'#ffecec', borderRadius:20, padding:16, alignItems:'center', borderWidth:1, borderColor:'#ffd2d2'},
   clearText:{color:'#ff5a5a', fontWeight:'800'},
-  bottomTabs:{position:'absolute', bottom: Platform.OS==='android'? 18 : 24, left:14, right:14, backgroundColor:'white', borderRadius:30, padding:6, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.12, shadowRadius:24, elevation:12, zIndex:100},
-  bottomTab:{flex:1, padding:16, borderRadius:22, alignItems:'center'},
+  bottomTabsFixed:{position:'absolute', bottom:56, left:14, right:14, backgroundColor:'white', borderRadius:32, padding:8, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.12, shadowRadius:20, elevation:20},
+  bottomTab:{flex:1, padding:16, borderRadius:24, alignItems:'center'},
   bottomTabActive:{backgroundColor:BLACK},
   bottomTabText:{fontWeight:'800', color:'#aaa'},
   bottomTabActiveText:{color:'white'}
