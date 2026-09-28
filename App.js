@@ -104,7 +104,7 @@ export default function App(){
       )}
 
       {/* SCROLLABLE MIDDLE - ONLY THIS MOVES */}
-      <ScrollView style={styles.scroll} contentContainerStyle={{paddingBottom:110}} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} contentContainerStyle={{paddingBottom: keyboardVisible ? 0 : 100}} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {tab==='cal' ? (
           <>
             {incomes.length===0 && (
@@ -190,16 +190,15 @@ export default function App(){
         <Pressable onPress={()=>setTab('cal')} style={[styles.bottomTab, tab==='cal'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='cal'&&styles.bottomTabActiveText]}>Calendar</Text></Pressable>
         <Pressable onPress={()=>setTab('bills')} style={[styles.bottomTab, tab==='bills'&&styles.bottomTabActive]}><Text style={[styles.bottomTabText, tab==='bills'&&styles.bottomTabActiveText]}>Bills & Income</Text></Pressable>
       </View>}
-      {/* BOTTOM SAFE SPACE - so you see Samsung ||| O < buttons */}
-      <View style={styles.bottomSafe} />
+      {/* NO bottomSafe - removed gray bar */}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root:{flex:1, backgroundColor:'#f6f6f5'},
-  topSafe:{height: Platform.OS==='android' ? (StatusBar.currentHeight||24) : 44, backgroundColor:'#f6f6f5'},
-  bottomSafe:{height: Platform.OS==='android' ? 56 : 34, backgroundColor:'#f6f6f5'},
+  topSafe:{height: Platform.OS==='android' ? (StatusBar.currentHeight||0) : 0, backgroundColor:'#f6f6f5'},
+  bottomSafe:{height: 0, backgroundColor:'#f6f6f5'},
   blackCard:{backgroundColor:BLACK, margin:16, marginTop:4, marginBottom:8, borderRadius:32, padding:22},
   blackTopRow:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'},
   blackTopLabel:{color:'#777', fontSize:11, fontWeight:'800', letterSpacing:1},
@@ -270,7 +269,7 @@ const styles = StyleSheet.create({
   summarySub:{color:'#555', fontSize:11, marginTop:10},
   clearBtn:{marginHorizontal:16, backgroundColor:'#ffecec', borderRadius:20, padding:16, alignItems:'center', borderWidth:1, borderColor:'#ffd2d2'},
   clearText:{color:'#ff5a5a', fontWeight:'800'},
-  bottomTabsFixed:{position:'absolute', bottom:56, left:14, right:14, backgroundColor:'white', borderRadius:32, padding:8, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.12, shadowRadius:20, elevation:20},
+  bottomTabsFixed:{position:'absolute', bottom:16, left:14, right:14, backgroundColor:'white', borderRadius:32, padding:8, flexDirection:'row', shadowColor:'#000', shadowOpacity:0.12, shadowRadius:20, elevation:20, marginBottom:0},
   bottomTab:{flex:1, padding:16, borderRadius:24, alignItems:'center'},
   bottomTabActive:{backgroundColor:BLACK},
   bottomTabText:{fontWeight:'800', color:'#aaa'},
