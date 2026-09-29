@@ -1,120 +1,261 @@
-
-import React, {useState, useEffect} from 'react';
-import {View, Text, TextInput, Pressable, ScrollView, StyleSheet, Platform, StatusBar, Dimensions} from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, StatusBar } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-const BLACK='#0a0a0a'; const LIME='#d6ff00'; const GRAY='#f5f5f5'; const PALE='#FFFACD';
-export default function App(){
-  const [tab,setTab]=useState('cal');
-  const [incomes,setIncomes]=useState([]); const [bills,setBills]=useState([]); const [spends,setSpends]=useState([]);
-  const [incName,setIncName]=useState(''); const [incAmt,setIncAmt]=useState(''); const [incDay,setIncDay]=useState(''); const [incFreq,setIncFreq]=useState('Monthly');
-  const [billName,setBillName]=useState(''); const [billAmt,setBillAmt]=useState(''); const [billDay,setBillDay]=useState(''); const [billFreq,setBillFreq]=useState('Monthly');
-  const [editingIncomeId,setEditingIncomeId]=useState(null); const [editingBillId,setEditingBillId]=useState(null);
-  const [quickName,setQuickName]=useState(''); const [quickAmt,setQuickAmt]=useState('');
-  const today=new Date(); const [curMonth,setCurMonth]=useState(new Date(today.getFullYear(),today.getMonth(),1));
-  const year=curMonth.getFullYear(); const month=curMonth.getMonth();
-  const daysInMonth=new Date(year,month+1,0).getDate(); const firstDay=new Date(year,month,1).getDay();
-  const monthNames=['January','February','March','April','May','June','July','August','September','October','November','December'];
-  useEffect(()=>{AsyncStorage.getItem('v_final_exact').then(d=>{if(d){const p=JSON.parse(d); setIncomes(p.incomes||[]); setBills(p.bills||[]); let sp=p.spends||[]; const now=Date.now(); sp=sp.filter(s=> now - new Date(s.date).getTime() < 7*24*60*60*1000); setSpends(sp);}});},[]);
-  useEffect(()=>{AsyncStorage.setItem('v_final_exact',JSON.stringify({incomes,bills,spends}));},[incomes,bills,spends]);
-  const monthlyIncomeTotal=incomes.reduce((s,i)=>s+(i.freq==='Weekly'?i.amount*4.33:i.amount),0);
-  const monthlyBillsTotal=bills.reduce((s,b)=>s+(b.freq==='Weekly'?b.amount*4.33:b.amount),0);
-  const monthlyLeft=monthlyIncomeTotal-monthlyBillsTotal;
-  const totalSpent=spends.reduce((s,x)=>s+x.amount,0);
-  const weeklyFull=monthlyLeft>0?monthlyLeft/4.33:0;
-  const weeklyLeft=weeklyFull-totalSpent;
-  const payday=incomes.length>0?Math.min(...incomes.map(i=>i.day)):9;
-  const curWeek=Math.floor((today.getDate()-payday)/7)+1; const weekLabel=curWeek>=1&&curWeek<=4?curWeek:1;
-  const getDayInfo=(d)=>{return {hasInc:incomes.some(i=>i.day===d), hasBill:bills.some(b=>b.day===d)};};
-  const getWeekForDay=(day)=>{ if(day<payday) return 4; const diff=day-payday; if(diff<7) return 1; if(diff<14) return 2; if(diff<21) return 3; return 4; };
-  const addIncome=()=>{const amt=parseFloat(incAmt); if(!incName||!amt) return; const day=parseInt(incDay)||1; if(editingIncomeId){setIncomes(prev=>prev.map(i=>i.id===editingIncomeId?{...i,name:incName,amount:amt,day,freq:incFreq}:i)); setEditingIncomeId(null);} else {setIncomes(prev=>[...prev,{id:Date.now().toString(),name:incName,amount:amt,day,freq:incFreq}]);} setIncName(''); setIncAmt(''); setIncDay('');};
-  const addBill=()=>{const amt=parseFloat(billAmt); if(!billName||!amt) return; const day=parseInt(billDay)||1; if(editingBillId){setBills(prev=>prev.map(b=>b.id===editingBillId?{...b,name:billName,amount:amt,day,freq:billFreq}:b)); setEditingBillId(null);} else {setBills(prev=>[...prev,{id:Date.now().toString(),name:billName,amount:amt,day,freq:billFreq}]);} setBillName(''); setBillAmt(''); setBillDay('');};
-  const editIncome=(item)=>{setIncName(item.name); setIncAmt(item.amount.toString()); setIncDay(item.day.toString()); setIncFreq(item.freq); setEditingIncomeId(item.id); setTab('bills');};
-  const editBill=(item)=>{setBillName(item.name); setBillAmt(item.amount.toString()); setBillDay(item.day.toString()); setBillFreq(item.freq); setEditingBillId(item.id); setTab('bills');};
-  return(
-    <View style={styles.root}>
-      <ScrollView style={styles.scroll} contentContainerStyle={{paddingBottom:120, paddingTop: Platform.OS==='android'?(StatusBar.currentHeight||0):8}} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {tab==='cal' && (
-          <View style={styles.blackCard}>
-            <View style={styles.blackTop}><Text style={styles.paydayTop}>PAYDAY {payday} • WEEK {weekLabel} • {monthNames[month].toUpperCase()}</Text><View style={styles.weekPill}><Text style={styles.weekPillText}>£{weeklyFull.toFixed(0)} / WEEK</Text></View></View>
-            <Text style={styles.bigLeft}>£{weeklyLeft.toFixed(2)}</Text>
-            <Text style={styles.leftLabel}>LEFT TO SPEND</Text>
-            <View style={styles.progress}><View style={[styles.progressFill,{width:`${monthlyLeft>0?Math.min(100, (totalSpent/weeklyFull)*100):0}%`}]} /></View>
-            <View style={styles.statsRow}><View style={styles.stat}><Text style={styles.statLabel}>SPENT</Text><Text style={styles.statVal}>£{totalSpent.toFixed(0)}</Text></View><View style={styles.line}/><View style={styles.stat}><Text style={styles.statLabel}>INCOME</Text><Text style={styles.statVal}>£{monthlyIncomeTotal.toFixed(0)}</Text></View><View style={styles.line}/><View style={styles.stat}><Text style={styles.statLabel}>BILLS</Text><Text style={[styles.statVal,{color:'#ff8a8a'}]}>-£{monthlyBillsTotal.toFixed(0)}</Text></View></View>
-          </View>
-        )}
-        {tab==='cal' && (
-          <View style={styles.calCard}>
-            <View style={styles.calHeader}><Pressable onPress={()=>setCurMonth(new Date(year,month-1,1))} style={styles.arrowCircle}><Text style={styles.arrow}>‹</Text></Pressable><View style={{alignItems:'center'}}><Text style={styles.monthText}>{monthNames[month]} {year}</Text><Text style={styles.paydaySub}>WEEKS START PAYDAY {payday}TH</Text></View><Pressable onPress={()=>setCurMonth(new Date(year,month+1,1))} style={styles.arrowCircle}><Text style={styles.arrow}>›</Text></Pressable></View>
-            <View style={styles.weekRow}>{['S','M','T','W','T','F','S'].map(d=><Text key={d} style={styles.weekDay}>{d}</Text>)}</View>
-            <View style={styles.daysGrid}>{Array.from({length:firstDay}).map((_,i)=><View key={'e'+i} style={styles.dayCell}/>)}
-              {Array.from({length:daysInMonth}).map((_,i)=>{const d=i+1; const {hasInc,hasBill}=getDayInfo(d); const isPayday=d===payday; return(
-                <View key={d} style={styles.dayCell}><View style={[styles.dayCircle, hasInc&&{backgroundColor:LIME}, hasBill&&!hasInc&&{backgroundColor:PALE}, isPayday&&{borderWidth:2, borderColor:BLACK}]}><Text style={styles.dayNum}>{d}</Text></View></View>
-              )})}
-            </View>
-            <View style={styles.legend}><View style={styles.legendItem}><View style={[styles.dot,{backgroundColor:LIME}]}/><Text style={styles.legendText}>Income</Text></View><View style={styles.legendItem}><View style={[styles.dot,{backgroundColor:PALE}]}/><Text style={styles.legendText}>Bill</Text></View></View>
-          </View>
-        )}
-        {tab==='cal' && (
-          <View style={styles.quickCard}>
-            <Text style={styles.quickTitle}>QUICK ADD - AUTO REMOVES AFTER 7 DAYS</Text>
-            <View style={styles.quickRow}><TextInput style={styles.quickInput} placeholder="What did you buy?" value={quickName} onChangeText={setQuickName}/><TextInput style={styles.quickAmt} placeholder="£0" keyboardType="numeric" value={quickAmt} onChangeText={setQuickAmt}/><Pressable style={styles.quickPlus} onPress={()=>{const a=parseFloat(quickAmt); if(!a) return; setSpends(prev=>[...prev,{id:Date.now().toString(),name:quickName||'Spend',amount:a,date:new Date().toISOString()}]); setQuickName(''); setQuickAmt('');}}><Text style={styles.plus}>+</Text></Pressable></View>
-            {spends.length>0&&spends.slice(-3).map(s=><Text key={s.id} style={styles.spendItem}>-£{s.amount} {s.name}</Text>)}
-          </View>
-        )}
-        {tab==='cal' && (
+
+export default function App() {
+  const [payday, setPayday] = useState(9);
+  const [weekView, setWeekView] = useState(1);
+  const [bills, setBills] = useState([]);
+  const [incomes, setIncomes] = useState([]);
+  const [quickSpends, setQuickSpends] = useState([]);
+  const [tab, setTab] = useState('calendar');
+  const [quickText, setQuickText] = useState('');
+  const [quickAmount, setQuickAmount] = useState('');
+  const [newBillName, setNewBillName] = useState('');
+  const [newBillAmount, setNewBillAmount] = useState('');
+  const [newBillDay, setNewBillDay] = useState('1');
+  const [newBillFreq, setNewBillFreq] = useState('monthly');
+
+  useEffect(() => {
+    (async () => {
+      const b = await AsyncStorage.getItem('bills');
+      const i = await AsyncStorage.getItem('incomes');
+      const q = await AsyncStorage.getItem('quick');
+      if (b) setBills(JSON.parse(b));
+      if (i) setIncomes(JSON.parse(i));
+      if (q) setQuickSpends(JSON.parse(q));
+    })();
+  }, []);
+
+  useEffect(() => { AsyncStorage.setItem('bills', JSON.stringify(bills)); }, [bills]);
+  useEffect(() => { AsyncStorage.setItem('incomes', JSON.stringify(incomes)); }, [incomes]);
+  useEffect(() => { AsyncStorage.setItem('quick', JSON.stringify(quickSpends)); }, [quickSpends]);
+
+  const totalBills = bills.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+  const totalIncome = incomes.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+  const totalQuick = quickSpends.reduce((s, b) => s + parseFloat(b.amount || 0), 0);
+  const left = totalIncome - totalBills - totalQuick;
+
+  const addQuick = () => {
+    if (!quickText || !quickAmount) return;
+    setQuickSpends([...quickSpends, { id: Date.now(), name: quickText, amount: quickAmount, date: Date.now() }]);
+    setQuickText(''); setQuickAmount('');
+  };
+
+  const addBill = () => {
+    if (!newBillName || !newBillAmount) return;
+    setBills([...bills, { id: Date.now(), name: newBillName, amount: newBillAmount, day: newBillDay, freq: newBillFreq }]);
+    setNewBillName(''); setNewBillAmount(''); setNewBillDay('1');
+  };
+
+  const addIncome = () => {
+    if (!newBillName || !newBillAmount) return;
+    setIncomes([...incomes, { id: Date.now(), name: newBillName, amount: newBillAmount, day: newBillDay, freq: newBillFreq }]);
+    setNewBillName(''); setNewBillAmount(''); setNewBillDay('1');
+  };
+
+  const days = Array.from({ length: 30 }, (_, i) => i + 1);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 100 }}>
+        {tab === 'calendar' ? (
           <>
-            <Text style={styles.listHeader}>BILLS - £{monthlyBillsTotal.toFixed(0)}/MO AUTO-DEDUCTED</Text>
-            {bills.map(b=><View key={b.id} style={styles.billCard}><View style={styles.billIcon}><Text style={styles.billIconText}>{b.day}</Text></View><View style={{flex:1}}><Text style={styles.billName}>{b.name}</Text><Text style={styles.billDue}>Due {b.day}th • Week {getWeekForDay(b.day)} • {b.freq.toLowerCase()}</Text></View><Text style={styles.billAmt}>-£{b.amount}</Text></View>)}
-            {bills.length===0&&<View style={styles.billCard}><View style={styles.billIcon}><Text style={styles.billIconText}>1</Text></View><View style={{flex:1}}><Text style={styles.billName}>Petrol (example)</Text><Text style={styles.billDue}>Add your bills in Bills & Income tab</Text></View><Text style={styles.billAmt}>-£40</Text></View>}
-            <Text style={[styles.listHeader,{marginTop:16}]}>INCOMES - £{monthlyIncomeTotal.toFixed(0)}/MO</Text>
-            {incomes.map(i=><View key={i.id} style={styles.billCard}><View style={[styles.billIcon,{backgroundColor:LIME}]}><Text style={[styles.billIconText,{color:BLACK}]}>{i.day}</Text></View><View style={{flex:1}}><Text style={styles.billName}>{i.name} {incomes.indexOf(i)===0?'• MAIN':''}</Text><Text style={styles.billDue}>Due {i.day}th • {i.freq.toLowerCase()}</Text></View><Text style={[styles.billAmt,{color:'#1a8a3a'}]}>+£{i.amount}</Text></View>)}
+            <View style={styles.header}>
+              <Text style={styles.payday}>PAYDAY {payday} • WEEK {weekView}</Text>
+              <Text style={styles.leftText}>£{left.toFixed(2)} LEFT TO SPEND</Text>
+              <Text style={styles.perWeek}>£{totalIncome > 0 ? (totalIncome/4).toFixed(0) : 0} / WEEK</Text>
+              <View style={styles.weekRow}>
+                {[1,2,3,4].map(w => (
+                  <TouchableOpacity key={w} onPress={() => setWeekView(w)} style={[styles.weekPill, weekView === w && styles.weekPillActive]}>
+                    <Text style={[styles.weekText, weekView === w && styles.weekTextActive]}>{w}w</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.statsCard}>
+              <View style={styles.stat}><Text style={[styles.statAmt, { color: '#ff8c00' }]}>£{totalQuick}</Text><Text style={styles.statLbl}>SPENT</Text></View>
+              <View style={styles.divider} />
+              <View style={styles.stat}><Text style={[styles.statAmt, { color: '#c8ff00' }]}>£{totalIncome}</Text><Text style={styles.statLbl}>INCOME</Text></View>
+              <View style={styles.divider} />
+              <View style={styles.stat}><Text style={[styles.statAmt, { color: '#ff4d4d' }]}>£{totalBills}</Text><Text style={styles.statLbl}>BILLS</Text></View>
+            </View>
+
+            <View style={styles.calendarCard}>
+              <View style={styles.calGrid}>
+                {days.map(d => {
+                  const hasBill = bills.some(b => parseInt(b.day) === d);
+                  const hasInc = incomes.some(b => parseInt(b.day) === d);
+                  return (
+                    <View key={d} style={[styles.day, hasInc && styles.dayIncome, hasBill && !hasInc && styles.dayBill, d === 9 && styles.dayPayday]}>
+                      <Text style={[styles.dayText, (hasInc || hasBill) && { fontWeight: 'bold' }]}>{d}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.legend}>
+                <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#c8ff00' }]} /><Text style={styles.legendText}>Income</Text></View>
+                <View style={styles.legendItem}><View style={[styles.dot, { backgroundColor: '#fff9c4' }]} /><Text style={styles.legendText}>Bill</Text></View>
+              </View>
+            </View>
+
+            <View style={styles.quickCard}>
+              <Text style={styles.quickTitle}>QUICK ADD - AUTO REMOVES AFTER 7 DAYS</Text>
+              <View style={styles.quickRow}>
+                <TextInput value={quickText} onChangeText={setQuickText} placeholder="What did you buy?" placeholderTextColor="#888" style={styles.quickInputBig} />
+                <TextInput value={quickAmount} onChangeText={setQuickAmount} placeholder="£0" keyboardType="numeric" style={styles.quickAmount} />
+                <TouchableOpacity onPress={addQuick} style={styles.addBtn}><Text style={styles.addBtnText}>+</Text></TouchableOpacity>
+              </View>
+              {quickSpends.map(q => (
+                <Text key={q.id} style={styles.quickItem}>-£{q.amount} {q.name}</Text>
+              ))}
+            </View>
+
+            <View style={{ marginTop: 20 }}>
+              <Text style={styles.sectionTitle}>BILLS - £{totalBills}/MO AUTO-DEDUCTED</Text>
+              {bills.length === 0 ? (
+                <View style={styles.emptyCard}><Text style={styles.emptyText}>No bills yet — add in Bills & Income tab</Text></View>
+              ) : (
+                bills.map(b => (
+                  <View key={b.id} style={styles.billRow}>
+                    <View style={styles.billDayBadge}><Text style={styles.billDayText}>{b.day}</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.billName}>{b.name}</Text>
+                      <Text style={styles.billSub}>{b.freq} • Day {b.day}</Text>
+                    </View>
+                    <Text style={styles.billAmt}>-£{b.amount}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+
+            <View style={{ marginTop: 20 }}>
+              <Text style={styles.sectionTitle}>INCOMES - £{totalIncome}/MO</Text>
+              {incomes.length === 0 ? (
+                <View style={styles.emptyCard}><Text style={styles.emptyText}>No incomes yet — add in Bills & Income tab</Text></View>
+              ) : (
+                incomes.map(b => (
+                  <View key={b.id} style={styles.billRow}>
+                    <View style={[styles.billDayBadge, { backgroundColor: '#c8ff00' }]}><Text style={[styles.billDayText, { color: '#000' }]}>{b.day}</Text></View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.billName}>{b.name}</Text>
+                      <Text style={styles.billSub}>{b.freq} • Day {b.day}</Text>
+                    </View>
+                    <Text style={[styles.billAmt, { color: '#c8ff00' }]}>+£{b.amount}</Text>
+                  </View>
+                ))
+              )}
+            </View>
           </>
-        )}
-        {tab==='bills' && (
+        ) : (
           <>
-            <View style={styles.section}><Text style={styles.sectionTitle}>INCOMES</Text><Text style={styles.sectionSub}>Tap bill below to edit • Clean M/W/Delete</Text>
-              <View style={styles.inputCard}>
-                <View style={styles.inputRow}><TextInput style={[styles.input,{flex:2}]} placeholder="Income name" value={incName} onChangeText={setIncName}/><TextInput style={styles.inputSmall} placeholder="£" keyboardType="numeric" value={incAmt} onChangeText={setIncAmt}/><TextInput style={styles.inputSmall} placeholder="Day" keyboardType="numeric" value={incDay} onChangeText={setIncDay}/></View>
-                <View style={styles.freqRow}><Pressable onPress={()=>setIncFreq('Weekly')} style={[styles.freqChip, incFreq==='Weekly'&&styles.freqActive]}><Text style={[styles.freqText, incFreq==='Weekly'&&styles.freqTextActive]}>Weekly</Text></Pressable><Pressable onPress={()=>setIncFreq('Monthly')} style={[styles.freqChip, incFreq==='Monthly'&&styles.freqActive]}><Text style={[styles.freqText, incFreq==='Monthly'&&styles.freqTextActive]}>Monthly</Text></Pressable><Pressable style={[styles.addBlack, editingIncomeId&&{backgroundColor:LIME}]} onPress={addIncome}><Text style={[styles.addBlackText, editingIncomeId&&{color:BLACK}]}>{editingIncomeId?'Update':'Add'}</Text></Pressable></View>
-                {incomes.map(i=><View key={i.id} style={styles.listRow}><Pressable onPress={()=>editIncome(i)} style={{flex:1}}><Text style={styles.listName}>{i.name} • Day {i.day}</Text><Text style={styles.listAmt}>+£{i.amount}</Text></Pressable><View style={styles.cleanRow}><Pressable onPress={()=>setIncomes(prev=>prev.map(x=>x.id===i.id?{...x,freq:'Monthly'}:x))} style={[styles.mwChip, i.freq==='Monthly'&&styles.mwActive]}><Text style={[styles.mwText, i.freq==='Monthly'&&styles.mwTextActive]}>M</Text></Pressable><Pressable onPress={()=>setIncomes(prev=>prev.map(x=>x.id===i.id?{...x,freq:'Weekly'}:x))} style={[styles.mwChip, i.freq==='Weekly'&&styles.mwActive]}><Text style={[styles.mwText, i.freq==='Weekly'&&styles.mwTextActive]}>W</Text></Pressable><Pressable onPress={()=>setIncomes(prev=>prev.filter(x=>x.id!==i.id))} style={styles.delClean}><Text style={styles.delCleanText}>Delete</Text></Pressable></View></View>)}
+            <Text style={styles.pageTitle}>Bills & Income</Text>
+            <View style={styles.formCard}>
+              <Text style={styles.formLabel}>Name</Text>
+              <TextInput value={newBillName} onChangeText={setNewBillName} placeholder="e.g. Rent, Wages" style={styles.formInput} placeholderTextColor="#888" />
+              <Text style={styles.formLabel}>Amount £</Text>
+              <TextInput value={newBillAmount} onChangeText={setNewBillAmount} placeholder="0" keyboardType="numeric" style={styles.formInput} placeholderTextColor="#888" />
+              <Text style={styles.formLabel}>Day of Month (1-30)</Text>
+              <TextInput value={newBillDay} onChangeText={setNewBillDay} keyboardType="numeric" style={styles.formInput} placeholderTextColor="#888" />
+              <Text style={styles.formLabel}>Frequency</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {['weekly','monthly'].map(f => (
+                  <TouchableOpacity key={f} onPress={() => setNewBillFreq(f)} style={[styles.freqBtn, newBillFreq === f && styles.freqBtnActive]}><Text style={[styles.freqText, newBillFreq === f && { color: '#000' }]}>{f}</Text></TouchableOpacity>
+                ))}
+              </View>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+                <TouchableOpacity onPress={addBill} style={[styles.actionBtn, { backgroundColor: '#ff4d4d' }]}><Text style={styles.actionText}>+ Add Bill</Text></TouchableOpacity>
+                <TouchableOpacity onPress={addIncome} style={[styles.actionBtn, { backgroundColor: '#c8ff00' }]}><Text style={[styles.actionText, { color: '#000' }]}>+ Add Income</Text></TouchableOpacity>
               </View>
             </View>
-            <View style={styles.section}><Text style={styles.sectionTitle}>BILLS</Text>
-              <View style={styles.inputCard}>
-                <View style={styles.inputRow}><TextInput style={[styles.input,{flex:2}]} placeholder="Bill name" value={billName} onChangeText={setBillName}/><TextInput style={styles.inputSmall} placeholder="£" keyboardType="numeric" value={billAmt} onChangeText={setBillAmt}/><TextInput style={styles.inputSmall} placeholder="Day" keyboardType="numeric" value={billDay} onChangeText={setBillDay}/></View>
-                <View style={styles.freqRow}><Pressable onPress={()=>setBillFreq('Weekly')} style={[styles.freqChip, billFreq==='Weekly'&&styles.freqActive]}><Text style={[styles.freqText, billFreq==='Weekly'&&styles.freqTextActive]}>Weekly</Text></Pressable><Pressable onPress={()=>setBillFreq('Monthly')} style={[styles.freqChip, billFreq==='Monthly'&&styles.freqActive]}><Text style={[styles.freqText, billFreq==='Monthly'&&styles.freqTextActive]}>Monthly</Text></Pressable><Pressable style={[styles.addBlack, editingBillId&&{backgroundColor:LIME}]} onPress={addBill}><Text style={[styles.addBlackText, editingBillId&&{color:BLACK}]}>{editingBillId?'Update':'Add'}</Text></Pressable></View>
-                {bills.map(b=><View key={b.id} style={styles.listRow}><Pressable onPress={()=>editBill(b)} style={{flex:1}}><Text style={styles.listName}>{b.name} • Day {b.day}</Text><Text style={styles.listAmtNeg}>-£{b.amount}</Text></Pressable><View style={styles.cleanRow}><Pressable onPress={()=>setBills(prev=>prev.map(x=>x.id===b.id?{...x,freq:'Monthly'}:x))} style={[styles.mwChip, b.freq==='Monthly'&&styles.mwActive]}><Text style={[styles.mwText, b.freq==='Monthly'&&styles.mwTextActive]}>M</Text></Pressable><Pressable onPress={()=>setBills(prev=>prev.map(x=>x.id===b.id?{...x,freq:'Weekly'}:x))} style={[styles.mwChip, b.freq==='Weekly'&&styles.mwActive]}><Text style={[styles.mwText, b.freq==='Weekly'&&styles.mwTextActive]}>W</Text></Pressable><Pressable onPress={()=>setBills(prev=>prev.filter(x=>x.id!==b.id))} style={styles.delClean}><Text style={styles.delCleanText}>Delete</Text></Pressable></View></View>)}
+
+            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>YOUR BILLS ({bills.length})</Text>
+            {bills.map(b => (
+              <View key={b.id} style={styles.billRow}>
+                <View style={styles.billDayBadge}><Text style={styles.billDayText}>{b.day}</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.billName}>{b.name}</Text><Text style={styles.billSub}>Day {b.day} • {b.freq} • £{b.amount}</Text></View>
+                <TouchableOpacity onPress={() => setBills(bills.filter(x => x.id !== b.id))}><Text style={{ color: '#ff4d4d', fontWeight: 'bold' }}>Delete</Text></TouchableOpacity>
               </View>
-            </View>
+            ))}
+
+            <Text style={[styles.sectionTitle, { marginTop: 20 }]}>YOUR INCOMES ({incomes.length})</Text>
+            {incomes.map(b => (
+              <View key={b.id} style={styles.billRow}>
+                <View style={[styles.billDayBadge, { backgroundColor: '#c8ff00' }]}><Text style={[styles.billDayText, { color: '#000' }]}>{b.day}</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.billName}>{b.name}</Text><Text style={styles.billSub}>Day {b.day} • {b.freq} • £{b.amount}</Text></View>
+                <TouchableOpacity onPress={() => setIncomes(incomes.filter(x => x.id !== b.id))}><Text style={{ color: '#ff4d4d', fontWeight: 'bold' }}>Delete</Text></TouchableOpacity>
+              </View>
+            ))}
           </>
         )}
       </ScrollView>
-      <View style={styles.bottomTabs}><Pressable onPress={()=>setTab('cal')} style={[styles.tabBtn, tab==='cal'&&styles.tabActive]}><Text style={[styles.tabText, tab==='cal'&&styles.tabTextActive]}>Calendar</Text></Pressable><Pressable onPress={()=>setTab('bills')} style={[styles.tabBtn, tab==='bills'&&styles.tabActive]}><Text style={[styles.tabText, tab==='bills'&&styles.tabTextActive]}>Bills & Income</Text></Pressable></View>
+
+      <View style={styles.bottomBar}>
+        <TouchableOpacity onPress={() => setTab('calendar')} style={[styles.tab, tab === 'calendar' && styles.tabActive]}><Text style={[styles.tabText, tab === 'calendar' && styles.tabTextActive]}>Calendar</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setTab('bills')} style={[styles.tab, tab === 'bills' && styles.tabActive]}><Text style={[styles.tabText, tab === 'bills' && styles.tabTextActive]}>Bills & Income</Text></TouchableOpacity>
+      </View>
     </View>
   );
 }
-const styles=StyleSheet.create({
-  root:{flex:1, backgroundColor:'#fafafa'},
-  scroll:{flex:1},
-  blackCard:{backgroundColor:BLACK, margin:16, borderRadius:28, padding:18},
-  blackTop:{flexDirection:'row', justifyContent:'space-between', alignItems:'center'}, paydayTop:{color:'#888', fontSize:10, fontWeight:'700', letterSpacing:1}, weekPill:{backgroundColor:'#222', borderRadius:14, paddingHorizontal:12, paddingVertical:5}, weekPillText:{color:'white', fontSize:11, fontWeight:'800'},
-  bigLeft:{color:'white', fontSize:44, fontWeight:'900', marginTop:12, letterSpacing:-1}, leftLabel:{color:'#666', fontSize:11, fontWeight:'700', letterSpacing:2, marginTop:4},
-  progress:{height:4, backgroundColor:'#222', borderRadius:2, marginTop:14}, progressFill:{height:4, backgroundColor:LIME},
-  statsRow:{flexDirection:'row', marginTop:16}, stat:{flex:1}, statLabel:{color:'#666', fontSize:10, fontWeight:'700', letterSpacing:1}, statVal:{color:'white', fontSize:16, fontWeight:'800', marginTop:3}, line:{width:1, backgroundColor:'#222', marginHorizontal:10},
-  calCard:{backgroundColor:'white', margin:16, borderRadius:28, padding:14, elevation:2},
-  calHeader:{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12}, arrowCircle:{width:38, height:38, borderRadius:19, backgroundColor:GRAY, alignItems:'center', justifyContent:'center'}, arrow:{fontSize:18, fontWeight:'600'}, monthText:{fontSize:18, fontWeight:'900'}, paydaySub:{fontSize:10, color:'#bbb', fontWeight:'700', letterSpacing:1, marginTop:2},
-  weekRow:{flexDirection:'row', justifyContent:'space-around', marginBottom:8}, weekDay:{color:'#ccc', fontSize:12, fontWeight:'700', width:40, textAlign:'center'},
-  daysGrid:{flexDirection:'row', flexWrap:'wrap'}, dayCell:{width:(Dimensions.get('window').width-60)/7, height:48, alignItems:'center', justifyContent:'center'}, dayCircle:{width:42, height:34, borderRadius:17, alignItems:'center', justifyContent:'center'}, dayNum:{fontSize:16, fontWeight:'600'},
-  legend:{flexDirection:'row', justifyContent:'center', gap:20, marginTop:12}, legendItem:{flexDirection:'row', alignItems:'center', gap:6}, dot:{width:10, height:10, borderRadius:5}, legendText:{fontSize:12, color:'#999'},
-  quickCard:{margin:16, marginTop:0, borderWidth:1.5, borderColor:LIME, borderRadius:20, padding:12, backgroundColor:'white'}, quickTitle:{fontSize:10, fontWeight:'700', color:'#bbb', letterSpacing:1, marginBottom:8}, quickRow:{flexDirection:'row', gap:8}, quickInput:{flex:1, backgroundColor:GRAY, borderRadius:12, padding:12, fontSize:13}, quickAmt:{width:70, backgroundColor:GRAY, borderRadius:12, padding:12, fontSize:13}, quickPlus:{width:48, height:48, borderRadius:24, backgroundColor:LIME, alignItems:'center', justifyContent:'center'}, plus:{fontSize:22, fontWeight:'900'}, spendItem:{fontSize:11, color:'#999', marginTop:4},
-  listHeader:{fontSize:11, fontWeight:'700', color:'#bbb', letterSpacing:1, marginHorizontal:16, marginTop:8, marginBottom:8},
-  billCard:{flexDirection:'row', alignItems:'center', backgroundColor:'white', marginHorizontal:16, marginBottom:8, borderRadius:16, padding:12}, billIcon:{width:36, height:36, borderRadius:10, backgroundColor:BLACK, alignItems:'center', justifyContent:'center'}, billIconText:{color:'white', fontWeight:'800', fontSize:13}, billName:{fontSize:14, fontWeight:'700'}, billDue:{fontSize:11, color:'#999', marginTop:2}, billAmt:{color:'#ff5a5a', fontWeight:'800', fontSize:14},
-  section:{margin:14}, sectionTitle:{fontSize:18, fontWeight:'900', marginBottom:4}, sectionSub:{color:'#888', fontSize:11, marginBottom:8},
-  inputCard:{backgroundColor:'white', borderRadius:20, padding:14}, inputRow:{flexDirection:'row', gap:8, marginBottom:10}, input:{backgroundColor:GRAY, borderRadius:12, padding:12, fontSize:13}, inputSmall:{backgroundColor:GRAY, borderRadius:12, padding:12, width:60, fontSize:13},
-  freqRow:{flexDirection:'row', gap:8, alignItems:'center'}, freqChip:{backgroundColor:GRAY, borderRadius:18, paddingHorizontal:12, paddingVertical:7}, freqActive:{backgroundColor:BLACK}, freqText:{fontSize:11, fontWeight:'700', color:'#888'}, freqTextActive:{color:'white'},
-  addBlack:{backgroundColor:BLACK, borderRadius:18, paddingHorizontal:18, paddingVertical:8, marginLeft:'auto'}, addBlackText:{color:'white', fontWeight:'800', fontSize:12},
-  listRow:{flexDirection:'row', alignItems:'center', paddingVertical:8, borderTopWidth:1, borderTopColor:'#f0f0f0', marginTop:6}, listName:{fontSize:12, fontWeight:'600'}, listAmt:{fontWeight:'800', fontSize:12}, listAmtNeg:{color:'#ff5a5a', fontWeight:'800', fontSize:12},
-  cleanRow:{flexDirection:'row', gap:5, marginLeft:6}, mwChip:{width:26, height:26, borderRadius:13, backgroundColor:GRAY, alignItems:'center', justifyContent:'center'}, mwActive:{backgroundColor:BLACK}, mwText:{fontSize:11, fontWeight:'800', color:'#999'}, mwTextActive:{color:'white'}, delClean:{backgroundColor:'#ffecec', paddingHorizontal:10, paddingVertical:5, borderRadius:10}, delCleanText:{color:'#ff5a5a', fontWeight:'700', fontSize:10},
-  bottomTabs:{position:'absolute', bottom:12, left:12, right:12, backgroundColor:'white', borderRadius:26, padding:5, flexDirection:'row', elevation:10},
-  tabBtn:{flex:1, paddingVertical:12, borderRadius:20, alignItems:'center'}, tabActive:{backgroundColor:BLACK}, tabText:{fontWeight:'700', color:'#aaa', fontSize:13}, tabTextActive:{color:'white'}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  header: { backgroundColor: '#121212', borderRadius: 16, padding: 20, alignItems: 'center' },
+  payday: { color: '#888', fontSize: 12, letterSpacing: 1 },
+  leftText: { color: '#fff', fontSize: 28, fontWeight: 'bold', marginTop: 8 },
+  perWeek: { color: '#888', marginTop: 4 },
+  weekRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  weekPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: '#2a2a2a' },
+  weekPillActive: { backgroundColor: '#c8ff00' },
+  weekText: { color: '#fff' },
+  weekTextActive: { color: '#000', fontWeight: 'bold' },
+  statsCard: { flexDirection: 'row', backgroundColor: '#121212', borderRadius: 16, padding: 16, marginTop: 12, justifyContent: 'space-around' },
+  stat: { alignItems: 'center' },
+  statAmt: { fontWeight: 'bold', fontSize: 16 },
+  statLbl: { color: '#888', fontSize: 10, marginTop: 2 },
+  divider: { width: 1, backgroundColor: '#2a2a2a' },
+  calendarCard: { backgroundColor: '#fff', borderRadius: 24, padding: 16, marginTop: 12 },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  day: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 20, marginVertical: 4 },
+  dayIncome: { backgroundColor: '#c8ff00' },
+  dayBill: { backgroundColor: '#fff9c4' },
+  dayPayday: { borderWidth: 2, borderColor: '#000' },
+  dayText: { fontSize: 16, fontWeight: '500' },
+  legend: { flexDirection: 'row', gap: 16, justifyContent: 'center', marginTop: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  legendText: { color: '#888' },
+  quickCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginTop: 16, borderWidth: 2, borderColor: '#c8ff00' },
+  quickTitle: { fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 12 },
+  quickRow: { flexDirection: 'row', gap: 8 },
+  quickInputBig: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 12, padding: 16, fontSize: 18, color: '#000' },
+  quickAmount: { width: 80, backgroundColor: '#f5f5f5', borderRadius: 12, padding: 16, fontSize: 18, textAlign: 'center' },
+  addBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#c8ff00', alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { fontSize: 28, fontWeight: 'bold' },
+  quickItem: { marginTop: 8, color: '#888', fontSize: 14 },
+  sectionTitle: { fontSize: 12, color: '#888', letterSpacing: 1, marginBottom: 8, fontWeight: 'bold' },
+  billRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8, gap: 12 },
+  billDayBadge: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  billDayText: { color: '#fff', fontWeight: 'bold' },
+  billName: { fontSize: 16, fontWeight: 'bold', color: '#000' },
+  billSub: { fontSize: 12, color: '#888', marginTop: 2 },
+  billAmt: { fontSize: 16, fontWeight: 'bold', color: '#ff4d4d' },
+  emptyCard: { backgroundColor: '#fff', borderRadius: 12, padding: 20, alignItems: 'center' },
+  emptyText: { color: '#888' },
+  pageTitle: { fontSize: 24, fontWeight: 'bold', marginBottom: 16, color: '#000' },
+  formCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16 },
+  formLabel: { fontSize: 12, color: '#888', marginTop: 12, marginBottom: 4 },
+  formInput: { backgroundColor: '#f5f5f5', borderRadius: 8, padding: 14, fontSize: 16, color: '#000' },
+  freqBtn: { flex: 1, padding: 10, borderRadius: 8, backgroundColor: '#f5f5f5', alignItems: 'center' },
+  freqBtnActive: { backgroundColor: '#c8ff00' },
+  freqText: { color: '#000' },
+  actionBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center' },
+  actionText: { color: '#fff', fontWeight: 'bold' },
+  bottomBar: { position: 'absolute', bottom: 20, left: 16, right: 16, flexDirection: 'row', backgroundColor: '#fff', borderRadius: 30, padding: 6, elevation: 10, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
+  tab: { flex: 1, padding: 14, borderRadius: 24, alignItems: 'center' },
+  tabActive: { backgroundColor: '#000' },
+  tabText: { color: '#888', fontWeight: 'bold' },
+  tabTextActive: { color: '#fff' },
 });
