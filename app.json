@@ -8,7 +8,6 @@
     "android": {
       "package": "com.ogclark.moneymanagement"
     },
-    "sdkVersion": "51.0.0",
     "extra": {
       "eas": {
         "projectId": "d0af4a19-afc1-46d4-9e60-ff4740f41c11"
