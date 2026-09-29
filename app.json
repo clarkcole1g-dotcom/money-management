@@ -8,6 +8,10 @@
     "android": {
       "package": "com.ogclark.moneymanagement"
     },
+    "splash": {
+      "backgroundColor": "#121212",
+      "resizeMode": "contain"
+    },
     "extra": {
       "eas": {
         "projectId": "d0af4a19-afc1-46d4-9e60-ff4740f41c11"
